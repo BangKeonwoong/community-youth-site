@@ -1,0 +1,117 @@
+import { useState } from 'react'
+import { Outlet, Link, useLocation } from 'react-router-dom'
+import { Home, Users, Heart, BookOpen, Music, LogOut } from 'lucide-react'
+import ErrorBanner from './common/ErrorBanner'
+import { useAuth } from '../hooks/useAuth'
+
+function Layout() {
+  const location = useLocation()
+  const { signOut } = useAuth()
+  const [logoutError, setLogoutError] = useState('')
+  const [isSigningOut, setIsSigningOut] = useState(false)
+
+  const navItems = [
+    { name: '홈', path: '/', icon: Home },
+    { name: '벙개', path: '/meetups', icon: Users },
+    { name: '은혜', path: '/grace', icon: Heart },
+    { name: '기도', path: '/prayer', icon: BookOpen },
+    { name: '찬양', path: '/praise', icon: Music },
+  ]
+
+  const handleSignOut = async () => {
+    setLogoutError('')
+    setIsSigningOut(true)
+
+    const { error } = await signOut()
+    if (error) {
+      setLogoutError(error.message)
+    }
+
+    setIsSigningOut(false)
+  }
+
+  return (
+    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg-primary)' }}>
+      <aside className="sidebar">
+        <div style={{ marginBottom: '2rem', padding: '0 1rem' }}>
+          <h1 style={{ fontSize: '1.25rem', fontWeight: '700', color: 'var(--accent-primary)' }}>
+            Youth
+            <br />
+            Community
+          </h1>
+        </div>
+
+        <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          {navItems.map((item) => {
+            const isActive = location.pathname === item.path
+            const Icon = item.icon
+
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  padding: '0.75rem 1rem',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: isActive ? 'var(--accent-light)' : 'transparent',
+                  color: isActive ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                  fontWeight: isActive ? '600' : '500',
+                  transition: 'all var(--transition-fast)',
+                }}
+              >
+                <Icon size={20} />
+                {item.name}
+              </Link>
+            )
+          })}
+        </nav>
+
+        <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem', marginTop: '1rem' }}>
+          {logoutError && <ErrorBanner message={logoutError} />}
+          <button
+            type="button"
+            onClick={handleSignOut}
+            disabled={isSigningOut}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              padding: '0.75rem 1rem',
+              color: 'var(--text-secondary)',
+              fontWeight: '500',
+              borderRadius: 'var(--radius-md)',
+              opacity: isSigningOut ? 0.7 : 1,
+            }}
+          >
+            <LogOut size={20} />
+            {isSigningOut ? '로그아웃 중...' : '로그아웃'}
+          </button>
+        </div>
+      </aside>
+
+      <main className="main-content">
+        <Outlet />
+      </main>
+
+      <nav className="bottom-nav">
+        {navItems.map((item) => {
+          const isActive = location.pathname === item.path
+          const Icon = item.icon
+
+          return (
+            <Link key={item.path} to={item.path} className={`bottom-nav-item ${isActive ? 'active' : ''}`}>
+              <Icon size={24} />
+              <span>{item.name}</span>
+            </Link>
+          )
+        })}
+      </nav>
+    </div>
+  )
+}
+
+export default Layout

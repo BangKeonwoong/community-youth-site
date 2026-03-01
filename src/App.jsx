@@ -1,0 +1,39 @@
+import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
+import Layout from './components/Layout'
+import Dashboard from './pages/Dashboard'
+import GraceSharing from './pages/GraceSharing'
+import Login from './pages/Login'
+import Meetups from './pages/Meetups'
+import PrayerRequests from './pages/PrayerRequests'
+import PraiseRecommendations from './pages/PraiseRecommendations'
+import SetPassword from './pages/SetPassword'
+import GuestOnly from './routes/GuestOnly'
+import RequireAuth from './routes/RequireAuth'
+
+function App() {
+  return (
+    <HashRouter>
+      <Routes>
+        <Route element={<GuestOnly />}>
+          <Route path="/login" element={<Login />} />
+          <Route path="/invite" element={<SetPassword />} />
+        </Route>
+
+        <Route element={<RequireAuth />}>
+          <Route path="/" element={<Layout />}>
+            <Route index element={<Dashboard />} />
+            <Route path="meetups" element={<Meetups />} />
+            <Route path="grace" element={<GraceSharing />} />
+            <Route path="prayer" element={<PrayerRequests />} />
+            <Route path="praise" element={<PraiseRecommendations />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Route>
+        </Route>
+
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </HashRouter>
+  )
+}
+
+export default App

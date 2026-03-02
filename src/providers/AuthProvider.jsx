@@ -109,10 +109,13 @@ export function AuthProvider({ children }) {
     }
 
     if (activeSession) {
-      const { error: redeemError } = await supabase.rpc('redeem_invite_code', {
-        p_code: inviteCode,
-        p_display_name: displayName || null,
-      })
+      const trimmedCode = inviteCode?.trim()
+      const rpcName = trimmedCode ? 'redeem_invite_code' : 'bootstrap_owner_profile'
+      const rpcParams = trimmedCode
+        ? { p_code: trimmedCode, p_display_name: displayName || null }
+        : { p_display_name: displayName || null }
+
+      const { error: redeemError } = await supabase.rpc(rpcName, rpcParams)
 
       if (redeemError) {
         setAuthError(redeemError.message)

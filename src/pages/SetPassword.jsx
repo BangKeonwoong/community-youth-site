@@ -59,7 +59,7 @@ function SetPassword() {
       <div className="glass animate-fade-in" style={{ padding: '2rem', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: '420px' }}>
         <h1 style={{ fontSize: '1.5rem', marginBottom: '0.5rem', textAlign: 'center' }}>초대 확인</h1>
         <p style={{ color: 'var(--text-secondary)', textAlign: 'center', marginBottom: '1.5rem' }}>
-          초대코드와 이메일로 계정을 생성하고 비밀번호를 설정하세요
+          초대코드(첫 관리자라면 비워도 됨)와 이메일로 계정을 생성하고 비밀번호를 설정하세요
         </p>
 
         <ErrorBanner message={error} />
@@ -74,8 +74,7 @@ function SetPassword() {
               type="text"
               value={inviteCode}
               onChange={(event) => setInviteCode(event.target.value)}
-              placeholder="INVITE-2026-XXXX"
-              required
+              placeholder="INVITE-2026-XXXX (선택)"
               style={{
                 width: '100%',
                 padding: '0.75rem',

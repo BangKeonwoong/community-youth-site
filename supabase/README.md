@@ -3,6 +3,7 @@
 ## 포함된 마이그레이션
 
 - `migrations/20260301_initial.sql`
+- `migrations/20260302_bootstrap_owner_profile.sql`
 
 포함 내용:
 - 핵심 테이블 10종
@@ -20,6 +21,7 @@
 - 관리자 판별 함수: `is_admin(uuid)`
 - 첫 가입자 관리자 부트스트랩 트리거: `bootstrap_first_user_admin()`
 - 초대코드 사용 RPC: `redeem_invite_code(code, display_name)`
+- 최초 관리자 부트스트랩 RPC: `bootstrap_owner_profile(display_name)`
 - 전체 RLS 활성화 및 정책
 
 ## 적용 방법
@@ -52,6 +54,20 @@ from public.redeem_invite_code('ABC12345', '홍길동');
 - 만료/중복 사용/이메일 불일치 검증
 - `profiles` upsert
 - `invite_codes`를 사용 완료 상태로 변경
+
+## First Owner Bootstrap RPC
+
+함수 시그니처:
+
+```sql
+select *
+from public.bootstrap_owner_profile('홍길동');
+```
+
+동작:
+- 로그인 사용자(`auth.uid()`) 필요
+- `profiles`가 비어 있을 때만 실행 가능
+- 최초 1명 프로필을 `is_admin = true`로 생성
 
 ## 보안 원칙
 

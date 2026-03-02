@@ -19,6 +19,35 @@ function SetPassword() {
     event.preventDefault()
     setError('')
 
+    const normalizedDisplayName = displayName.trim()
+    const normalizedEmail = email.trim()
+    const normalizedInviteCode = inviteCode.trim()
+
+    if (!normalizedDisplayName) {
+      setError('표시 이름을 입력해 주세요.')
+      return
+    }
+
+    if (!normalizedEmail) {
+      setError('이메일을 입력해 주세요.')
+      return
+    }
+
+    if (!/\S+@\S+\.\S+/.test(normalizedEmail)) {
+      setError('올바른 이메일 형식으로 입력해 주세요.')
+      return
+    }
+
+    if (!password) {
+      setError('비밀번호를 입력해 주세요.')
+      return
+    }
+
+    if (!confirmPassword) {
+      setError('비밀번호 확인을 입력해 주세요.')
+      return
+    }
+
     if (password.length < 8) {
       setError('비밀번호는 8자 이상이어야 합니다.')
       return
@@ -31,9 +60,9 @@ function SetPassword() {
 
     setIsSubmitting(true)
     const { data, error: signUpError } = await signUpWithInvite({
-      inviteCode: inviteCode.trim(),
-      displayName: displayName.trim(),
-      email: email.trim(),
+      inviteCode: normalizedInviteCode,
+      displayName: normalizedDisplayName,
+      email: normalizedEmail,
       password,
     })
 
@@ -64,7 +93,7 @@ function SetPassword() {
 
         <ErrorBanner message={error} />
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div>
             <label htmlFor="invite-code" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
               초대코드
@@ -96,7 +125,6 @@ function SetPassword() {
               onChange={(event) => setDisplayName(event.target.value)}
               placeholder="홍길동"
               autoComplete="name"
-              required
               style={{
                 width: '100%',
                 padding: '0.75rem',
@@ -118,7 +146,6 @@ function SetPassword() {
               onChange={(event) => setEmail(event.target.value)}
               placeholder="you@example.com"
               autoComplete="email"
-              required
               style={{
                 width: '100%',
                 padding: '0.75rem',
@@ -140,7 +167,6 @@ function SetPassword() {
               onChange={(event) => setPassword(event.target.value)}
               placeholder="8자 이상"
               autoComplete="new-password"
-              required
               minLength={8}
               style={{
                 width: '100%',
@@ -163,7 +189,6 @@ function SetPassword() {
               onChange={(event) => setConfirmPassword(event.target.value)}
               placeholder="비밀번호 재입력"
               autoComplete="new-password"
-              required
               minLength={8}
               style={{
                 width: '100%',

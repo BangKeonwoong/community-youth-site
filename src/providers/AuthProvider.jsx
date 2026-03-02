@@ -11,6 +11,48 @@ function authUnavailableResult() {
   return { data: null, error: createSupabaseNotConfiguredError() }
 }
 
+function mapAuthErrorMessage(rawMessage, hasInviteCode) {
+  const message = String(rawMessage || '')
+
+  if (message.includes('User already registered')) {
+    return '이미 가입된 이메일입니다. 로그인 화면에서 로그인해 주세요.'
+  }
+
+  if (message.includes('Email rate limit exceeded')) {
+    return '이메일 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.'
+  }
+
+  if (message.includes('BOOTSTRAP_ALREADY_COMPLETED')) {
+    return '첫 관리자 생성이 이미 완료되었습니다. 이제 초대코드를 입력해야 가입할 수 있습니다.'
+  }
+
+  if (message.includes('INVITE_NOT_FOUND')) {
+    return '초대코드를 찾을 수 없습니다. 코드를 다시 확인해 주세요.'
+  }
+
+  if (message.includes('INVITE_ALREADY_REDEEMED')) {
+    return '이미 사용된 초대코드입니다.'
+  }
+
+  if (message.includes('INVITE_EXPIRED')) {
+    return '만료된 초대코드입니다.'
+  }
+
+  if (message.includes('INVITE_EMAIL_MISMATCH')) {
+    return '초대코드에 등록된 이메일과 입력한 이메일이 일치하지 않습니다.'
+  }
+
+  if (message.includes('USER_ALREADY_REDEEMED')) {
+    return '이 계정은 이미 초대코드가 적용되었습니다.'
+  }
+
+  if (!hasInviteCode && message.includes('AUTH_REQUIRED')) {
+    return '관리자 부트스트랩을 위해 먼저 로그인이 필요합니다.'
+  }
+
+  return message || '요청 처리 중 오류가 발생했습니다.'
+}
+
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
   const [user, setUser] = useState(null)
@@ -71,7 +113,7 @@ export function AuthProvider({ children }) {
     const result = await supabase.auth.signInWithPassword({ email, password })
 
     if (result.error) {
-      setAuthError(result.error.message)
+      setAuthError(mapAuthErrorMessage(result.error.message, true))
     } else {
       setAuthError('')
     }
@@ -96,7 +138,7 @@ export function AuthProvider({ children }) {
     })
 
     if (signUpResult.error) {
-      setAuthError(signUpResult.error.message)
+      setAuthError(mapAuthErrorMessage(signUpResult.error.message, Boolean(inviteCode?.trim())))
       return signUpResult
     }
 
@@ -118,8 +160,15 @@ export function AuthProvider({ children }) {
       const { error: redeemError } = await supabase.rpc(rpcName, rpcParams)
 
       if (redeemError) {
-        setAuthError(redeemError.message)
-        return { data: signUpResult.data, error: redeemError }
+        const mappedMessage = mapAuthErrorMessage(redeemError.message, Boolean(trimmedCode))
+        setAuthError(mappedMessage)
+        return {
+          data: signUpResult.data,
+          error: {
+            ...redeemError,
+            message: mappedMessage,
+          },
+        }
       }
 
       setAuthError('')

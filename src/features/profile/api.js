@@ -51,6 +51,89 @@ function toError(error, fallbackMessage) {
   return nextError
 }
 
+function resolveDisplayName(user) {
+  const metadataName =
+    user?.user_metadata?.display_name || user?.user_metadata?.name || user?.user_metadata?.full_name
+
+  if (metadataName && String(metadataName).trim()) {
+    return String(metadataName).trim()
+  }
+
+  if (user?.email) {
+    return user.email.split('@')[0]
+  }
+
+  return FALLBACK_PROFILE_NAME
+}
+
+function mapOnboardingErrorMessage(rawMessage) {
+  const message = String(rawMessage || '')
+
+  if (message.includes('BOOTSTRAP_ALREADY_COMPLETED')) {
+    return '관리자 부트스트랩이 이미 끝났습니다. 초대코드로 가입을 다시 진행해 주세요.'
+  }
+
+  if (message.includes('INVITE_NOT_FOUND')) {
+    return '초대코드를 찾을 수 없습니다. `/invite`에서 올바른 코드를 입력해 다시 가입해 주세요.'
+  }
+
+  if (message.includes('INVITE_ALREADY_REDEEMED')) {
+    return '이미 사용된 초대코드입니다. 관리자에게 새 코드를 요청해 주세요.'
+  }
+
+  if (message.includes('INVITE_EXPIRED')) {
+    return '만료된 초대코드입니다. 관리자에게 새 코드를 요청해 주세요.'
+  }
+
+  if (message.includes('INVITE_EMAIL_MISMATCH')) {
+    return '초대코드에 등록된 이메일과 로그인한 이메일이 다릅니다.'
+  }
+
+  if (message.includes('USER_ALREADY_REDEEMED')) {
+    return '이미 초대코드가 적용된 계정입니다. 다시 로그인해 주세요.'
+  }
+
+  if (message.includes('AUTH_REQUIRED')) {
+    return '로그인 세션을 확인하지 못했습니다. 다시 로그인해 주세요.'
+  }
+
+  return ''
+}
+
+async function completeOnboardingForUser(user) {
+  const inviteCode = String(user?.user_metadata?.invite_code || '').trim()
+  const displayName = resolveDisplayName(user)
+
+  if (inviteCode) {
+    const { error } = await supabase.rpc('redeem_invite_code', {
+      p_code: inviteCode,
+      p_display_name: displayName,
+    })
+
+    if (error) {
+      const mapped = mapOnboardingErrorMessage(error.message)
+      if (mapped) {
+        throw new Error(mapped)
+      }
+      throw toError(error, '초대코드 적용에 실패했습니다.')
+    }
+
+    return
+  }
+
+  const { error } = await supabase.rpc('bootstrap_owner_profile', {
+    p_display_name: displayName,
+  })
+
+  if (error) {
+    const mapped = mapOnboardingErrorMessage(error.message)
+    if (mapped) {
+      throw new Error(mapped)
+    }
+    throw toError(error, '관리자 부트스트랩에 실패했습니다.')
+  }
+}
+
 export function isConfigured() {
   return isSupabaseConfigured
 }
@@ -104,9 +187,14 @@ export async function getCurrentProfile() {
     return createFallbackProfile('unauthenticated')
   }
 
-  const profile = await getProfileByUserId(user.id)
+  let profile = await getProfileByUserId(user.id)
   if (!profile) {
-    throw new Error('초대코드가 아직 적용되지 않았습니다. 관리자에게 문의해주세요.')
+    await completeOnboardingForUser(user)
+    profile = await getProfileByUserId(user.id)
+  }
+
+  if (!profile) {
+    throw new Error('프로필 생성이 완료되지 않았습니다. 잠시 후 다시 시도해 주세요.')
   }
 
   return normalizeProfile(profile)

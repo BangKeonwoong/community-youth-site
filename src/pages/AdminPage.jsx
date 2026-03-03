@@ -262,34 +262,34 @@ function AdminPage() {
   const currentProfile = normalizeProfile(adminPage?.currentProfile || adminPage?.profile || adminPage?.me || null)
   const invites = asArray(
     adminPage?.invites ||
-      adminPage?.inviteCodes ||
-      adminPage?.inviteList ||
-      adminPage?.data?.invites ||
-      adminPage?.data?.inviteCodes
+    adminPage?.inviteCodes ||
+    adminPage?.inviteList ||
+    adminPage?.data?.invites ||
+    adminPage?.data?.inviteCodes
   ).map(normalizeInvite)
   const profiles = asArray(
     adminPage?.profiles ||
-      adminPage?.profileList ||
-      adminPage?.users ||
-      adminPage?.members ||
-      adminPage?.data?.profiles ||
-      adminPage?.data?.users
+    adminPage?.profileList ||
+    adminPage?.users ||
+    adminPage?.members ||
+    adminPage?.data?.profiles ||
+    adminPage?.data?.users
   ).map(normalizeProfile)
   const moderationItems = asArray(
     adminPage?.moderationItems ||
-      adminPage?.moderationPosts ||
-      adminPage?.moderationList ||
-      adminPage?.posts ||
-      adminPage?.contents ||
-      adminPage?.data?.moderationItems
+    adminPage?.moderationPosts ||
+    adminPage?.moderationList ||
+    adminPage?.posts ||
+    adminPage?.contents ||
+    adminPage?.data?.moderationItems
   ).map(normalizeModerationItem)
 
   const isLoading = Boolean(
     adminPage?.isLoading ||
-      adminPage?.loading ||
-      adminPage?.isPending ||
-      adminPage?.isFetching ||
-      adminPage?.isRefetching
+    adminPage?.loading ||
+    adminPage?.isPending ||
+    adminPage?.isFetching ||
+    adminPage?.isRefetching
   )
   const pageErrorMessage = toErrorMessage(
     adminPage?.error || adminPage?.pageError || adminPage?.listError || adminPage?.fetchError
@@ -608,13 +608,15 @@ function AdminPage() {
                   return (
                     <div key={profile.id || profile.displayName} className="admin-list-row">
                       <div style={{ display: 'grid', gap: '0.3rem' }}>
-                        <p style={{ fontWeight: 600 }}>{profile.displayName}</p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                          <span className={`admin-role-badge ${isAdmin ? 'admin' : 'member'}`}>
+                            {isAdmin ? 'ADMIN' : 'MEMBER'}
+                          </span>
+                          <p style={{ fontWeight: 600 }}>{profile.displayName}</p>
+                        </div>
                         {profile.email ? (
                           <p style={{ fontSize: '0.82rem', color: 'var(--text-tertiary)' }}>{profile.email}</p>
                         ) : null}
-                        <span className={`admin-role-badge ${isAdmin ? 'admin' : 'member'}`}>
-                          {isAdmin ? 'ADMIN' : 'MEMBER'}
-                        </span>
                       </div>
                       <button
                         type="button"

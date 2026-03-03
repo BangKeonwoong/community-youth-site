@@ -125,13 +125,31 @@ function Birthdays() {
                   className={`birthday-row ${isSelected ? 'selected' : ''}`}
                   onClick={() => handleSelectPerson(birthday)}
                 >
-                  <div>
-                    <p style={{ fontWeight: 600 }}>{birthday.displayName}</p>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                      생일: {formatBirthDate(birthday.birthDate)}
-                    </p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div style={{
+                      width: '38px',
+                      height: '38px',
+                      borderRadius: '50%',
+                      backgroundColor: isSelected ? 'var(--bg-secondary)' : 'var(--accent-light)',
+                      color: 'var(--accent-primary)',
+                      border: '1px solid var(--accent-primary)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: '700',
+                      fontSize: '1.05rem',
+                      flexShrink: 0
+                    }}>
+                      {birthday.displayName?.charAt(0) || '👤'}
+                    </div>
+                    <div>
+                      <p style={{ fontWeight: 600 }}>{birthday.displayName}</p>
+                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                        생일: {formatBirthDate(birthday.birthDate)}
+                      </p>
+                    </div>
                   </div>
-                  <span className={`birthday-days-badge ${birthday.daysUntil === 0 ? 'today' : ''}`}>
+                  <span className={`birthday-days-badge ${birthday.daysUntil === 0 ? 'today pulse-animation' : ''}`}>
                     {badgeLabel}
                   </span>
                 </button>
@@ -159,11 +177,11 @@ function Birthdays() {
               required
             />
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <button
-                  type="submit"
-                  className="btn-primary"
-                  disabled={!supabaseStatus.configured || isSubmitting || !effectiveSelectedProfileId}
-                >
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={!supabaseStatus.configured || isSubmitting || !effectiveSelectedProfileId}
+              >
                 {isSubmitting ? '전송 중...' : '메시지 보내기'}
               </button>
             </div>

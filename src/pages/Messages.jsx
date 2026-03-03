@@ -126,32 +126,43 @@ function Messages() {
               const isUnreadInbox = scope === 'inbox' && !message.isRead
 
               return (
-                <article key={message.id} className="message-row">
+                <article key={message.id} className={`message-row ${isUnreadInbox ? 'unread' : ''}`}>
                   <header className="message-row-header">
-                    <div style={{ display: 'grid', gap: '0.12rem' }}>
-                      <p style={{ fontWeight: 600 }}>
-                        {scope === 'inbox' ? `보낸 사람: ${message.senderName}` : `받는 사람: ${message.receiverName}`}
-                      </p>
-                      {isAdmin && includeAll ? (
-                        <p style={{ color: 'var(--text-tertiary)', fontSize: '0.8rem' }}>
-                          {message.senderName} → {message.receiverName}
-                        </p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      {isUnreadInbox ? (
+                        <div style={{
+                          width: '8px',
+                          height: '8px',
+                          borderRadius: '50%',
+                          backgroundColor: 'var(--accent-primary)',
+                          flexShrink: 0
+                        }}></div>
                       ) : null}
+                      <div style={{ display: 'grid', gap: '0.12rem' }}>
+                        <p style={{ fontWeight: isUnreadInbox ? 700 : 600, color: isUnreadInbox ? 'var(--accent-primary)' : 'inherit' }}>
+                          {scope === 'inbox' ? `보낸 사람: ${message.senderName}` : `받는 사람: ${message.receiverName}`}
+                        </p>
+                        {isAdmin && includeAll ? (
+                          <p style={{ color: 'var(--text-tertiary)', fontSize: '0.8rem' }}>
+                            {message.senderName} → {message.receiverName}
+                          </p>
+                        ) : null}
+                      </div>
                     </div>
 
                     <div style={{ textAlign: 'right' }}>
-                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                      <p style={{ color: isUnreadInbox ? 'var(--accent-primary)' : 'var(--text-secondary)', fontSize: '0.82rem', fontWeight: isUnreadInbox ? 600 : 400 }}>
                         {formatDateTime(message.createdAt)}
                       </p>
                       {scope === 'inbox' ? (
                         <p style={{ color: 'var(--text-tertiary)', fontSize: '0.78rem' }}>
-                          {message.isRead ? `읽음: ${formatDateTime(message.readAt)}` : '읽지 않음'}
+                          {message.isRead ? `읽음: ${formatDateTime(message.readAt)}` : '새 메시지'}
                         </p>
                       ) : null}
                     </div>
                   </header>
 
-                  <p style={{ whiteSpace: 'pre-wrap' }}>{message.content || '(내용 없음)'}</p>
+                  <p style={{ whiteSpace: 'pre-wrap', color: 'var(--text-primary)' }}>{message.content || '(내용 없음)'}</p>
 
                   {isUnreadInbox ? (
                     <div style={{ display: 'flex', justifyContent: 'flex-end' }}>

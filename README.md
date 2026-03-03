@@ -64,3 +64,56 @@ VITE_SUPABASE_ANON_KEY=...
 - `supabase/migrations/20260302_bootstrap_owner_profile.sql`
 
 적용/운영 가이드는 `supabase/README.md`를 참고하세요.
+
+## 6) Gemini CLI 운영 정책 (Gemini 3 전용)
+
+이 저장소에서는 Gemini CLI 호출 시 아래 모델 순서를 고정합니다.
+
+1. `gemini-3-flash-preview`
+2. `gemini-3.1-pro-preview`
+3. `gemini-3-pro-preview`
+
+`gemini-3-pro`는 현재 환경에서 직접 호출 시 `ModelNotFound(404)`가 발생할 수 있어,
+`gemini-3-pro-preview`를 Pro 계열 fallback으로 사용합니다.
+
+### 표준 실행
+
+```bash
+npm run ai:run -- --prompt "Return exactly: OK"
+```
+
+또는 stdin과 함께 사용할 수 있습니다.
+
+```bash
+echo "Summarize this text" | npm run ai:run -- --prompt "Keep it short"
+```
+
+### 재시도 규칙
+
+- `429` / `MODEL_CAPACITY_EXHAUSTED`일 때만 재시도
+- 총 재시도 예산: 15분 (`900s`)
+- 모델별 단일 호출 timeout: 기본 `120s`
+
+환경변수로 조정 가능합니다.
+
+```bash
+GEMINI_MAX_WAIT_SECONDS=900 GEMINI_CALL_TIMEOUT_SECONDS=120 npm run ai:run -- --prompt "..."
+```
+
+### 종료 코드
+
+- `0`: 성공
+- `42`: 용량 문제로 재시도 예산(최대 대기시간) 초과
+- `1`: 기타 실패(인증/모델 미존재/입력 오류 등)
+
+### 모델 상태 프로브
+
+```bash
+npm run ai:probe
+```
+
+필요하면 특정 모델만 검사할 수 있습니다.
+
+```bash
+npm run ai:probe -- gemini-3.1-pro-preview gemini-3-pro-preview
+```

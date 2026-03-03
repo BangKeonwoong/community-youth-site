@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "ai:run": "bash ./scripts/gemini-run.sh",
+    "ai:probe": "bash ./scripts/gemini-probe.sh"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.58.0",

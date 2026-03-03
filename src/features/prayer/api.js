@@ -61,13 +61,15 @@ function normalizePrayerRequest(row, supports, profileMap, currentProfileId) {
   const prayedByMe = supports.some(
     (support) => support.request_id === row.id && support.user_id === currentProfileId,
   )
+  const isAnonymous = Boolean(row.is_anonymous)
 
   return {
     id: row.id,
     title: row.title || '제목 없음',
     content: row.content || '',
     authorId: row.author_id || null,
-    authorName: profileMap.get(row.author_id) || '이름 미상',
+    authorName: isAnonymous ? '익명' : profileMap.get(row.author_id) || '이름 미상',
+    isAnonymous,
     createdAt: row.created_at || null,
     updatedAt: row.updated_at || null,
     prayerCount,
@@ -99,6 +101,14 @@ export async function listPrayerRequests(currentProfileId) {
   return rows.map((row) => normalizePrayerRequest(row, supportRows, profileMap, currentProfileId))
 }
 
+function toPrayerMutationRow(payload) {
+  return {
+    title: payload.title.trim(),
+    content: payload.content.trim(),
+    is_anonymous: Boolean(payload?.isAnonymous),
+  }
+}
+
 export async function createPrayerRequest(payload, profile) {
   requireSupabaseConfigured()
   assertProfile(profile)
@@ -108,8 +118,7 @@ export async function createPrayerRequest(payload, profile) {
   const { data, error } = await supabase
     .from(PRAYER_TABLE)
     .insert({
-      title: payload.title.trim(),
-      content: payload.content.trim(),
+      ...toPrayerMutationRow(payload),
       author_id: profile.id,
     })
     .select('*')
@@ -129,10 +138,7 @@ export async function updatePrayerRequest(requestId, payload) {
 
   const { data, error } = await supabase
     .from(PRAYER_TABLE)
-    .update({
-      title: payload.title.trim(),
-      content: payload.content.trim(),
-    })
+    .update(toPrayerMutationRow(payload))
     .eq('id', requestId)
     .select('*')
     .single()

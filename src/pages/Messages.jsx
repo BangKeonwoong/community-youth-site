@@ -47,9 +47,24 @@ function Messages() {
   const [scope, setScope] = useState('inbox')
   const [includeAll, setIncludeAll] = useState(false)
   const [feedback, setFeedback] = useState('')
+  const [compose, setCompose] = useState({ receiverId: '', content: '' })
 
-  const { supabaseStatus, profile, isAdmin, messages, isLoading, error, markBirthdayMessageRead, isSubmitting } =
-    useMessagesPage({ scope, includeAll })
+  const {
+    supabaseStatus,
+    profile,
+    isAdmin,
+    messages,
+    recipients,
+    isLoading,
+    error,
+    sendMessage,
+    markBirthdayMessageRead,
+    isSubmitting,
+  } = useMessagesPage({ scope, includeAll })
+
+  const effectiveReceiverId = recipients.some((recipient) => recipient.id === compose.receiverId)
+    ? compose.receiverId
+    : recipients[0]?.id || ''
 
   const handleMarkRead = async (messageId) => {
     setFeedback('')
@@ -62,11 +77,27 @@ function Messages() {
     }
   }
 
+  const handleSendMessage = async (event) => {
+    event.preventDefault()
+    setFeedback('')
+
+    try {
+      await sendMessage({
+        ...compose,
+        receiverId: effectiveReceiverId,
+      })
+      setFeedback('메시지를 전송했습니다.')
+      setCompose((prev) => ({ ...prev, receiverId: effectiveReceiverId, content: '' }))
+    } catch (sendError) {
+      setFeedback(sendError.message)
+    }
+  }
+
   return (
     <div className="animate-fade-in page-stack messages-page">
       <header>
         <h1 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '0.35rem' }}>메시지</h1>
-        <p style={{ color: 'var(--text-secondary)' }}>생일 축하 메시지의 수신/발신 내역을 확인하세요.</p>
+        <p style={{ color: 'var(--text-secondary)' }}>공동체 멤버에게 메시지를 보내고 수신/발신 내역을 확인하세요.</p>
         {profile ? (
           <p style={{ marginTop: '0.35rem', color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>
             {profile.displayName} ({profile.role})
@@ -78,6 +109,55 @@ function Messages() {
 
       <ErrorBanner message={error?.message || ''} />
       <ErrorBanner message={feedback} />
+
+      <section className="glass messages-card" style={{ marginBottom: '1rem' }}>
+        <h2 style={{ fontSize: '1.05rem', marginBottom: '0.75rem' }}>메시지 보내기</h2>
+
+        {recipients.length === 0 ? (
+          <p style={{ color: 'var(--text-secondary)' }}>메시지를 보낼 수 있는 멤버가 없습니다.</p>
+        ) : (
+          <form className="messages-compose-form" onSubmit={handleSendMessage}>
+            <label className="messages-compose-field" htmlFor="messages-receiver">
+              <span>받는 사람</span>
+              <select
+                id="messages-receiver"
+                value={effectiveReceiverId}
+                onChange={(event) => setCompose((prev) => ({ ...prev, receiverId: event.target.value }))}
+                required
+              >
+                {recipients.map((recipient) => (
+                  <option key={recipient.id} value={recipient.id}>
+                    {recipient.displayName}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="messages-compose-field" htmlFor="messages-content">
+              <span>메시지</span>
+              <textarea
+                id="messages-content"
+                value={compose.content}
+                onChange={(event) => setCompose((prev) => ({ ...prev, content: event.target.value }))}
+                rows={4}
+                maxLength={500}
+                placeholder="메시지를 입력해 주세요"
+                required
+              />
+            </label>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={!supabaseStatus.configured || isSubmitting || !effectiveReceiverId}
+              >
+                {isSubmitting ? '전송 중...' : '메시지 보내기'}
+              </button>
+            </div>
+          </form>
+        )}
+      </section>
 
       <section className="glass messages-card">
         <div className="messages-toolbar">
@@ -130,13 +210,15 @@ function Messages() {
                   <header className="message-row-header">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       {isUnreadInbox ? (
-                        <div style={{
-                          width: '8px',
-                          height: '8px',
-                          borderRadius: '50%',
-                          backgroundColor: 'var(--accent-primary)',
-                          flexShrink: 0
-                        }}></div>
+                        <div
+                          style={{
+                            width: '8px',
+                            height: '8px',
+                            borderRadius: '50%',
+                            backgroundColor: 'var(--accent-primary)',
+                            flexShrink: 0,
+                          }}
+                        ></div>
                       ) : null}
                       <div style={{ display: 'grid', gap: '0.12rem' }}>
                         <p style={{ fontWeight: isUnreadInbox ? 700 : 600, color: isUnreadInbox ? 'var(--accent-primary)' : 'inherit' }}>
@@ -151,7 +233,13 @@ function Messages() {
                     </div>
 
                     <div style={{ textAlign: 'right' }}>
-                      <p style={{ color: isUnreadInbox ? 'var(--accent-primary)' : 'var(--text-secondary)', fontSize: '0.82rem', fontWeight: isUnreadInbox ? 600 : 400 }}>
+                      <p
+                        style={{
+                          color: isUnreadInbox ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                          fontSize: '0.82rem',
+                          fontWeight: isUnreadInbox ? 600 : 400,
+                        }}
+                      >
                         {formatDateTime(message.createdAt)}
                       </p>
                       {scope === 'inbox' ? (

@@ -1,10 +1,16 @@
 import { useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { listMessages, markBirthdayMessageRead as markBirthdayMessageReadApi } from './api'
+import {
+  listMessageRecipients,
+  listMessages,
+  markBirthdayMessageRead as markBirthdayMessageReadApi,
+  sendMessage as sendMessageApi,
+} from './api'
 import { getCurrentProfile, getSupabaseStatus } from '../profile/api'
 
 const PROFILE_QUERY_KEY = ['profile']
 const MESSAGES_QUERY_KEY = ['birthday-messages']
+const MESSAGE_RECIPIENTS_QUERY_KEY = ['message-recipients']
 
 function useSupabaseStatus() {
   return useMemo(() => getSupabaseStatus(), [])
@@ -45,8 +51,22 @@ export function useMessagesPage({ scope = 'inbox', includeAll = false } = {}) {
     enabled: supabaseStatus.configured && profileQuery.isSuccess,
   })
 
+  const recipientsQuery = useQuery({
+    queryKey: [...MESSAGE_RECIPIENTS_QUERY_KEY, profileQuery.data?.id || 'anonymous'],
+    queryFn: () => listMessageRecipients({ excludeProfileId: profileQuery.data?.id || null }),
+    enabled: supabaseStatus.configured && profileQuery.isSuccess,
+    staleTime: 2 * 60 * 1000,
+  })
+
   const markReadMutation = useMutation({
     mutationFn: markBirthdayMessageReadApi,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: MESSAGES_QUERY_KEY })
+    },
+  })
+
+  const sendMessageMutation = useMutation({
+    mutationFn: (payload) => sendMessageApi(payload, profileQuery.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: MESSAGES_QUERY_KEY })
     },
@@ -57,11 +77,21 @@ export function useMessagesPage({ scope = 'inbox', includeAll = false } = {}) {
     profile: profileQuery.data,
     isAdmin,
     messages: messagesQuery.data || [],
+    recipients: recipientsQuery.data || [],
     isLoading:
       profileQuery.isLoading ||
-      (supabaseStatus.configured && messagesQuery.isLoading && messagesQuery.fetchStatus !== 'idle'),
-    error: profileQuery.error || messagesQuery.error || markReadMutation.error || null,
+      (supabaseStatus.configured &&
+        ((messagesQuery.isLoading && messagesQuery.fetchStatus !== 'idle') ||
+          (recipientsQuery.isLoading && recipientsQuery.fetchStatus !== 'idle'))),
+    error:
+      profileQuery.error ||
+      messagesQuery.error ||
+      recipientsQuery.error ||
+      markReadMutation.error ||
+      sendMessageMutation.error ||
+      null,
     markBirthdayMessageRead: markReadMutation.mutateAsync,
-    isSubmitting: markReadMutation.isPending,
+    sendMessage: sendMessageMutation.mutateAsync,
+    isSubmitting: markReadMutation.isPending || sendMessageMutation.isPending,
   }
 }

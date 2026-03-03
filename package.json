@@ -1,11 +1,12 @@
 {
-  "name": "-",
+  "name": "community-site",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:nkrv": "node ./scripts/build-nkrv-data.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "ai:run": "bash ./scripts/gemini-run.sh",

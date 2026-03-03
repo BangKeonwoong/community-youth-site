@@ -6,6 +6,7 @@ import { canManagePost } from '../features/profile/api'
 const EMPTY_FORM = {
   title: '',
   content: '',
+  isAnonymous: false,
 }
 
 function formatDate(value) {
@@ -74,7 +75,11 @@ function PrayerRequestsContent() {
   }
 
   const openEditForm = (request) => {
-    setForm({ title: request.title, content: request.content })
+    setForm({
+      title: request.title,
+      content: request.content,
+      isAnonymous: Boolean(request.isAnonymous),
+    })
     setEditingId(request.id)
     setIsFormOpen(true)
     setFeedback('')
@@ -205,6 +210,16 @@ function PrayerRequestsContent() {
             style={{ ...inputStyle, resize: 'vertical' }}
             required
           />
+
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+            <input
+              type="checkbox"
+              checked={form.isAnonymous}
+              onChange={(event) => setForm((prev) => ({ ...prev, isAnonymous: event.target.checked }))}
+            />
+            익명으로 올리기
+          </label>
+
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
             <button
               className="btn-secondary"
@@ -256,7 +271,23 @@ function PrayerRequestsContent() {
                     {request.content}
                   </p>
                   <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
-                    작성자: {request.authorName} • {formatDate(request.createdAt)}
+                    작성자: {request.authorName}
+                    {request.isAnonymous ? (
+                      <span
+                        style={{
+                          marginLeft: '0.4rem',
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          color: '#0f766e',
+                          backgroundColor: '#ccfbf1',
+                          borderRadius: '999px',
+                          padding: '0.12rem 0.4rem',
+                        }}
+                      >
+                        익명
+                      </span>
+                    ) : null}{' '}
+                    • {formatDate(request.createdAt)}
                   </p>
                 </div>
 

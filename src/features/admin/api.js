@@ -292,6 +292,7 @@ function toModerationTitle(type, row) {
 }
 
 function normalizeModerationRow(type, row, profileMap) {
+  const isAnonymous = (type === 'grace' || type === 'prayer') && Boolean(row.is_anonymous)
   const authorId = row.author_id || row.created_by || null
 
   return {
@@ -299,8 +300,9 @@ function normalizeModerationRow(type, row, profileMap) {
     id: row.id,
     title: toModerationTitle(type, row),
     content: toModerationContent(type, row),
-    authorId,
-    authorName: profileMap.get(authorId) || '이름 미상',
+    authorId: isAnonymous ? null : authorId,
+    authorName: isAnonymous ? '익명' : profileMap.get(authorId) || '이름 미상',
+    isAnonymous,
     createdAt: row.created_at || null,
     updatedAt: row.updated_at || null,
   }
@@ -468,11 +470,11 @@ export async function listModerationPosts() {
         .order('created_at', { ascending: false }),
       supabase
         .from(GRACE_TABLE)
-        .select('id, title, content, author_id, created_at, updated_at')
+        .select('id, title, content, author_id, is_anonymous, created_at, updated_at')
         .order('created_at', { ascending: false }),
       supabase
         .from(PRAYER_TABLE)
-        .select('id, title, content, author_id, created_at, updated_at')
+        .select('id, title, content, author_id, is_anonymous, created_at, updated_at')
         .order('created_at', { ascending: false }),
       supabase
         .from(PRAISE_TABLE)

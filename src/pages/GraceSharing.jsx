@@ -1,11 +1,28 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import PostComments from '../components/comments/PostComments'
 import { useGracePage } from '../features/grace/hooks'
 import { canManagePost } from '../features/profile/api'
+import { getNkrvBookData, getNkrvBookIndex } from '../features/scripture/nkrvClient'
+import {
+  extractScriptureRange,
+  formatScriptureReference,
+  normalizeScriptureRange,
+  stringifyScriptureVerses,
+} from '../features/scripture/range'
 
 const EMPTY_FORM = {
   title: '',
   content: '',
+  isAnonymous: false,
+}
+
+const EMPTY_SCRIPTURE_SELECTION = {
+  bookId: '',
+  startChapter: '',
+  startVerse: '',
+  endChapter: '',
+  endVerse: '',
 }
 
 function formatRelativeDate(value) {
@@ -52,6 +69,78 @@ function InfoBanner({ message }) {
   )
 }
 
+function toStringOrEmpty(value) {
+  const text = String(value ?? '').trim()
+  return text || ''
+}
+
+function getChapterOptions(bookData) {
+  if (!bookData?.chapters?.length) {
+    return []
+  }
+
+  return bookData.chapters.map((chapter) => String(chapter.chapter))
+}
+
+function getVerseOptions(bookData, chapterValue) {
+  const chapterNumber = Number(chapterValue)
+  if (!Number.isFinite(chapterNumber) || chapterNumber <= 0 || !bookData?.chapters?.length) {
+    return []
+  }
+
+  const chapter = bookData.chapters.find((row) => row.chapter === chapterNumber)
+  if (!chapter) {
+    return []
+  }
+
+  return chapter.verses.map((_, index) => String(index + 1))
+}
+
+function normalizeScriptureSelection(selection, bookData) {
+  if (!selection.bookId || !bookData?.chapters?.length) {
+    return {
+      ...selection,
+      startChapter: '',
+      startVerse: '',
+      endChapter: '',
+      endVerse: '',
+    }
+  }
+
+  const chapterOptions = getChapterOptions(bookData)
+  const startChapter = chapterOptions.includes(selection.startChapter)
+    ? selection.startChapter
+    : chapterOptions[0] || ''
+
+  let endChapter = chapterOptions.includes(selection.endChapter) ? selection.endChapter : startChapter
+  if (Number(endChapter) < Number(startChapter)) {
+    endChapter = startChapter
+  }
+
+  const startVerseOptions = getVerseOptions(bookData, startChapter)
+  const startVerse = startVerseOptions.includes(selection.startVerse)
+    ? selection.startVerse
+    : startVerseOptions[0] || ''
+
+  const rawEndVerseOptions = getVerseOptions(bookData, endChapter)
+  const endVerseOptions =
+    endChapter === startChapter
+      ? rawEndVerseOptions.filter((verse) => Number(verse) >= Number(startVerse || '0'))
+      : rawEndVerseOptions
+
+  const endVerse = endVerseOptions.includes(selection.endVerse)
+    ? selection.endVerse
+    : endVerseOptions[endVerseOptions.length - 1] || endVerseOptions[0] || ''
+
+  return {
+    ...selection,
+    startChapter,
+    startVerse,
+    endChapter,
+    endVerse,
+  }
+}
+
 function GraceSharingContent() {
   const {
     supabaseStatus,
@@ -67,12 +156,105 @@ function GraceSharingContent() {
   } = useGracePage()
 
   const [form, setForm] = useState(EMPTY_FORM)
+  const [scriptureSelection, setScriptureSelection] = useState(EMPTY_SCRIPTURE_SELECTION)
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [feedback, setFeedback] = useState('')
 
+  const booksQuery = useQuery({
+    queryKey: ['nkrv', 'index'],
+    queryFn: getNkrvBookIndex,
+    staleTime: Infinity,
+  })
+
+  const selectedBookId = scriptureSelection.bookId
+  const selectedBookQuery = useQuery({
+    queryKey: ['nkrv', 'book', selectedBookId],
+    queryFn: () => getNkrvBookData(selectedBookId),
+    enabled: Boolean(selectedBookId),
+    staleTime: Infinity,
+  })
+
+  const books = useMemo(() => {
+    const rows = booksQuery.data || []
+    return [...rows].sort((left, right) => left.order - right.order)
+  }, [booksQuery.data])
+
+  const selectedBook = selectedBookQuery.data || null
+  const effectiveScriptureSelection = useMemo(() => {
+    if (!selectedBook) {
+      return scriptureSelection
+    }
+
+    return normalizeScriptureSelection(scriptureSelection, selectedBook)
+  }, [scriptureSelection, selectedBook])
+
+  const chapterOptions = useMemo(() => getChapterOptions(selectedBook), [selectedBook])
+
+  const startVerseOptions = useMemo(
+    () => getVerseOptions(selectedBook, effectiveScriptureSelection.startChapter),
+    [selectedBook, effectiveScriptureSelection.startChapter],
+  )
+
+  const endChapterOptions = useMemo(() => {
+    const startChapter = Number(effectiveScriptureSelection.startChapter)
+    if (!Number.isFinite(startChapter) || startChapter <= 0) {
+      return chapterOptions
+    }
+
+    return chapterOptions.filter((chapter) => Number(chapter) >= startChapter)
+  }, [chapterOptions, effectiveScriptureSelection.startChapter])
+
+  const endVerseOptions = useMemo(() => {
+    const rawOptions = getVerseOptions(selectedBook, effectiveScriptureSelection.endChapter)
+
+    if (effectiveScriptureSelection.endChapter !== effectiveScriptureSelection.startChapter) {
+      return rawOptions
+    }
+
+    const startVerse = Number(effectiveScriptureSelection.startVerse)
+    if (!Number.isFinite(startVerse) || startVerse <= 0) {
+      return rawOptions
+    }
+
+    return rawOptions.filter((verse) => Number(verse) >= startVerse)
+  }, [
+    selectedBook,
+    effectiveScriptureSelection.endChapter,
+    effectiveScriptureSelection.startChapter,
+    effectiveScriptureSelection.startVerse,
+  ])
+
+  const scripturePreview = useMemo(() => {
+    if (!selectedBook || !effectiveScriptureSelection.bookId) {
+      return null
+    }
+
+    const range = normalizeScriptureRange(effectiveScriptureSelection)
+    if (!range) {
+      return null
+    }
+
+    const verses = extractScriptureRange(selectedBook, range)
+    if (verses.length === 0) {
+      return null
+    }
+
+    return {
+      reference: formatScriptureReference({
+        bookName: selectedBook.name,
+        startChapter: range.startChapter,
+        startVerse: range.startVerse,
+        endChapter: range.endChapter,
+        endVerse: range.endVerse,
+      }),
+      text: stringifyScriptureVerses(verses),
+    }
+  }, [selectedBook, effectiveScriptureSelection])
+
   const resetForm = () => {
     setForm(EMPTY_FORM)
+    setScriptureSelection(EMPTY_SCRIPTURE_SELECTION)
     setEditingId(null)
   }
 
@@ -83,10 +265,66 @@ function GraceSharingContent() {
   }
 
   const openEditForm = (post) => {
-    setForm({ title: post.title, content: post.content })
+    setForm({
+      title: post.title,
+      content: post.content,
+      isAnonymous: Boolean(post.isAnonymous),
+    })
+
+    setScriptureSelection(
+      post.scripture
+        ? {
+            bookId: toStringOrEmpty(post.scripture.bookId),
+            startChapter: toStringOrEmpty(post.scripture.startChapter),
+            startVerse: toStringOrEmpty(post.scripture.startVerse),
+            endChapter: toStringOrEmpty(post.scripture.endChapter),
+            endVerse: toStringOrEmpty(post.scripture.endVerse),
+          }
+        : EMPTY_SCRIPTURE_SELECTION,
+    )
+
     setEditingId(post.id)
     setIsFormOpen(true)
     setFeedback('')
+  }
+
+  const buildScripturePayload = () => {
+    if (!effectiveScriptureSelection.bookId) {
+      return null
+    }
+
+    if (!selectedBook) {
+      throw new Error('선택한 성경 본문 데이터를 불러오는 중입니다. 잠시 후 다시 시도해 주세요.')
+    }
+
+    const range = normalizeScriptureRange(effectiveScriptureSelection)
+    if (!range) {
+      throw new Error('성경 범위를 정확히 선택해 주세요.')
+    }
+
+    const verses = extractScriptureRange(selectedBook, range)
+    if (verses.length === 0) {
+      throw new Error('선택한 성경 범위의 본문을 찾지 못했습니다.')
+    }
+
+    const reference = formatScriptureReference({
+      bookName: selectedBook.name,
+      startChapter: range.startChapter,
+      startVerse: range.startVerse,
+      endChapter: range.endChapter,
+      endVerse: range.endVerse,
+    })
+
+    return {
+      bookId: selectedBook.id,
+      bookName: selectedBook.name,
+      startChapter: range.startChapter,
+      startVerse: range.startVerse,
+      endChapter: range.endChapter,
+      endVerse: range.endVerse,
+      reference,
+      text: stringifyScriptureVerses(verses),
+    }
   }
 
   const handleSubmit = async (event) => {
@@ -94,11 +332,16 @@ function GraceSharingContent() {
     setFeedback('')
 
     try {
+      const payload = {
+        ...form,
+        scripture: buildScripturePayload(),
+      }
+
       if (editingId) {
-        await updatePost({ postId: editingId, payload: form })
+        await updatePost({ postId: editingId, payload })
         setFeedback('글이 수정되었습니다.')
       } else {
-        await createPost(form)
+        await createPost(payload)
         setFeedback('은혜 나눔이 등록되었습니다.')
       }
 
@@ -135,6 +378,35 @@ function GraceSharingContent() {
       setFeedback(likeError.message)
     }
   }
+
+  const handleScriptureBookChange = (bookId) => {
+    if (!bookId) {
+      setScriptureSelection(EMPTY_SCRIPTURE_SELECTION)
+      return
+    }
+
+    setScriptureSelection({
+      ...EMPTY_SCRIPTURE_SELECTION,
+      bookId,
+    })
+  }
+
+  const handleScriptureFieldChange = (field, value) => {
+    setScriptureSelection((prev) => {
+      const next = {
+        ...prev,
+        [field]: value,
+      }
+
+      if (!selectedBook) {
+        return next
+      }
+
+      return normalizeScriptureSelection(next, selectedBook)
+    })
+  }
+
+  const scriptureError = booksQuery.error || selectedBookQuery.error || null
 
   return (
     <div className="animate-fade-in">
@@ -187,6 +459,17 @@ function GraceSharingContent() {
         </div>
       ) : null}
 
+      {scriptureError ? (
+        <div
+          className="glass"
+          style={{ marginBottom: '1rem', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)' }}
+        >
+          <p style={{ color: '#ef4444', fontSize: '0.9rem' }}>
+            NKRV 본문 데이터를 불러오지 못했습니다. ({scriptureError.message})
+          </p>
+        </div>
+      ) : null}
+
       {isFormOpen ? (
         <form
           onSubmit={handleSubmit}
@@ -214,6 +497,111 @@ function GraceSharingContent() {
             style={{ ...inputStyle, resize: 'vertical' }}
             required
           />
+
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+            <input
+              type="checkbox"
+              checked={form.isAnonymous}
+              onChange={(event) => setForm((prev) => ({ ...prev, isAnonymous: event.target.checked }))}
+            />
+            익명으로 올리기
+          </label>
+
+          <div style={{ border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '0.8rem', display: 'grid', gap: '0.65rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <p style={{ fontSize: '0.9rem', fontWeight: 600 }}>성경 범위 선택 (선택)</p>
+              {scriptureSelection.bookId ? (
+                <button type="button" className="btn-secondary" onClick={() => setScriptureSelection(EMPTY_SCRIPTURE_SELECTION)}>
+                  본문 선택 해제
+                </button>
+              ) : null}
+            </div>
+
+            <div style={{ display: 'grid', gap: '0.6rem', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))' }}>
+              <select
+                value={effectiveScriptureSelection.bookId}
+                onChange={(event) => handleScriptureBookChange(event.target.value)}
+                style={inputStyle}
+              >
+                <option value="">권 선택 안 함</option>
+                {books.map((book) => (
+                  <option key={book.id} value={book.id}>
+                    {book.name}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={effectiveScriptureSelection.startChapter}
+                onChange={(event) => handleScriptureFieldChange('startChapter', event.target.value)}
+                disabled={!effectiveScriptureSelection.bookId || chapterOptions.length === 0}
+                style={inputStyle}
+              >
+                <option value="">시작 장</option>
+                {chapterOptions.map((chapter) => (
+                  <option key={`start-chapter-${chapter}`} value={chapter}>
+                    {chapter}장
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={effectiveScriptureSelection.startVerse}
+                onChange={(event) => handleScriptureFieldChange('startVerse', event.target.value)}
+                disabled={!effectiveScriptureSelection.startChapter || startVerseOptions.length === 0}
+                style={inputStyle}
+              >
+                <option value="">시작 절</option>
+                {startVerseOptions.map((verse) => (
+                  <option key={`start-verse-${verse}`} value={verse}>
+                    {verse}절
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={effectiveScriptureSelection.endChapter}
+                onChange={(event) => handleScriptureFieldChange('endChapter', event.target.value)}
+                disabled={!effectiveScriptureSelection.startChapter || endChapterOptions.length === 0}
+                style={inputStyle}
+              >
+                <option value="">끝 장</option>
+                {endChapterOptions.map((chapter) => (
+                  <option key={`end-chapter-${chapter}`} value={chapter}>
+                    {chapter}장
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={effectiveScriptureSelection.endVerse}
+                onChange={(event) => handleScriptureFieldChange('endVerse', event.target.value)}
+                disabled={!effectiveScriptureSelection.endChapter || endVerseOptions.length === 0}
+                style={inputStyle}
+              >
+                <option value="">끝 절</option>
+                {endVerseOptions.map((verse) => (
+                  <option key={`end-verse-${verse}`} value={verse}>
+                    {verse}절
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {selectedBookQuery.isLoading && effectiveScriptureSelection.bookId ? (
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>본문을 불러오는 중입니다...</p>
+            ) : null}
+
+            {scripturePreview ? (
+              <div style={{ border: '1px dashed var(--border-color)', borderRadius: 'var(--radius-md)', padding: '0.7rem', display: 'grid', gap: '0.4rem', backgroundColor: 'var(--bg-secondary)' }}>
+                <p style={{ fontWeight: 600, fontSize: '0.9rem' }}>{scripturePreview.reference} (NKRV)</p>
+                <p style={{ whiteSpace: 'pre-wrap', color: 'var(--text-secondary)', fontSize: '0.86rem', maxHeight: '180px', overflowY: 'auto' }}>
+                  {scripturePreview.text}
+                </p>
+              </div>
+            ) : null}
+          </div>
+
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
             <button
               className="btn-secondary"
@@ -225,7 +613,7 @@ function GraceSharingContent() {
             >
               취소
             </button>
-            <button className="btn-primary" type="submit" disabled={isSubmitting}>
+            <button className="btn-primary" type="submit" disabled={isSubmitting || booksQuery.isLoading}>
               {editingId ? '수정 저장' : '등록'}
             </button>
           </div>
@@ -268,7 +656,24 @@ function GraceSharingContent() {
                   {initial}
                 </div>
                 <div>
-                  <p style={{ fontWeight: 600, fontSize: '0.9rem' }}>{post.authorName}</p>
+                  <p style={{ fontWeight: 600, fontSize: '0.9rem' }}>
+                    {post.authorName}
+                    {post.isAnonymous ? (
+                      <span
+                        style={{
+                          marginLeft: '0.4rem',
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          color: '#0f766e',
+                          backgroundColor: '#ccfbf1',
+                          borderRadius: '999px',
+                          padding: '0.12rem 0.4rem',
+                        }}
+                      >
+                        익명
+                      </span>
+                    ) : null}
+                  </p>
                   <p style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
                     {formatRelativeDate(post.createdAt)}
                   </p>
@@ -277,6 +682,13 @@ function GraceSharingContent() {
 
               <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.5rem' }}>{post.title}</h3>
               <p style={{ color: 'var(--text-primary)', opacity: 0.9, whiteSpace: 'pre-wrap' }}>{post.content}</p>
+
+              {post.scripture?.reference ? (
+                <div style={{ marginTop: '0.8rem', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '0.7rem', backgroundColor: 'var(--bg-secondary)', display: 'grid', gap: '0.35rem' }}>
+                  <p style={{ fontWeight: 600, fontSize: '0.86rem' }}>{post.scripture.reference} (NKRV)</p>
+                  <p style={{ whiteSpace: 'pre-wrap', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>{post.scripture.text}</p>
+                </div>
+              ) : null}
 
               <div
                 style={{

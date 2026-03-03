@@ -56,16 +56,128 @@ function assertContent(content) {
   }
 }
 
+function toOptionalTrimmedText(value) {
+  const text = String(value ?? '').trim()
+  return text || null
+}
+
+function toPositiveIntegerOrNull(value) {
+  if (value === null || typeof value === 'undefined' || value === '') {
+    return null
+  }
+
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null
+  }
+
+  return Math.floor(parsed)
+}
+
+function normalizeScripturePayload(rawScripture) {
+  if (!rawScripture || typeof rawScripture !== 'object') {
+    return null
+  }
+
+  const normalized = {
+    bookId: toOptionalTrimmedText(rawScripture.bookId),
+    bookName: toOptionalTrimmedText(rawScripture.bookName),
+    startChapter: toPositiveIntegerOrNull(rawScripture.startChapter),
+    startVerse: toPositiveIntegerOrNull(rawScripture.startVerse),
+    endChapter: toPositiveIntegerOrNull(rawScripture.endChapter),
+    endVerse: toPositiveIntegerOrNull(rawScripture.endVerse),
+    reference: toOptionalTrimmedText(rawScripture.reference),
+    text: toOptionalTrimmedText(rawScripture.text),
+  }
+
+  const hasAnyField = Object.values(normalized).some(Boolean)
+  if (!hasAnyField) {
+    return null
+  }
+
+  if (
+    !normalized.bookId ||
+    !normalized.bookName ||
+    !normalized.startChapter ||
+    !normalized.startVerse ||
+    !normalized.endChapter ||
+    !normalized.endVerse ||
+    !normalized.reference ||
+    !normalized.text
+  ) {
+    throw new Error('성경 범위를 정확히 선택해 주세요.')
+  }
+
+  if (
+    normalized.endChapter < normalized.startChapter ||
+    (normalized.endChapter === normalized.startChapter && normalized.endVerse < normalized.startVerse)
+  ) {
+    throw new Error('성경 범위의 시작/끝 구절이 올바르지 않습니다.')
+  }
+
+  if (normalized.reference.length > 120) {
+    throw new Error('성경 범위 표시는 120자 이하로 입력해 주세요.')
+  }
+
+  if (normalized.text.length > 20000) {
+    throw new Error('선택한 성경 본문이 너무 깁니다. 범위를 줄여 주세요.')
+  }
+
+  return normalized
+}
+
+function toScriptureColumns(rawScripture) {
+  const scripture = normalizeScripturePayload(rawScripture)
+
+  if (!scripture) {
+    return {
+      scripture_book_id: null,
+      scripture_book_name: null,
+      scripture_start_chapter: null,
+      scripture_start_verse: null,
+      scripture_end_chapter: null,
+      scripture_end_verse: null,
+      scripture_reference: null,
+      scripture_text: null,
+    }
+  }
+
+  return {
+    scripture_book_id: scripture.bookId,
+    scripture_book_name: scripture.bookName,
+    scripture_start_chapter: scripture.startChapter,
+    scripture_start_verse: scripture.startVerse,
+    scripture_end_chapter: scripture.endChapter,
+    scripture_end_verse: scripture.endVerse,
+    scripture_reference: scripture.reference,
+    scripture_text: scripture.text,
+  }
+}
+
 function normalizeGracePost(row, likes, profileMap, currentProfileId) {
   const likeCount = likes.filter((like) => like.post_id === row.id).length
   const likedByMe = likes.some((like) => like.post_id === row.id && like.user_id === currentProfileId)
+  const isAnonymous = Boolean(row.is_anonymous)
 
   return {
     id: row.id,
     title: row.title || '제목 없음',
     content: row.content || '',
     authorId: row.author_id || null,
-    authorName: profileMap.get(row.author_id) || '이름 미상',
+    authorName: isAnonymous ? '익명' : profileMap.get(row.author_id) || '이름 미상',
+    isAnonymous,
+    scripture: row.scripture_book_id
+      ? {
+          bookId: row.scripture_book_id,
+          bookName: row.scripture_book_name || '',
+          startChapter: row.scripture_start_chapter,
+          startVerse: row.scripture_start_verse,
+          endChapter: row.scripture_end_chapter,
+          endVerse: row.scripture_end_verse,
+          reference: row.scripture_reference || '',
+          text: row.scripture_text || '',
+        }
+      : null,
     createdAt: row.created_at || null,
     updatedAt: row.updated_at || null,
     likeCount,
@@ -96,6 +208,15 @@ export async function listGracePosts(currentProfileId) {
   return rows.map((row) => normalizeGracePost(row, likeRows, profileMap, currentProfileId))
 }
 
+function toGraceMutationRow(payload) {
+  return {
+    title: payload.title.trim(),
+    content: payload.content.trim(),
+    is_anonymous: Boolean(payload?.isAnonymous),
+    ...toScriptureColumns(payload?.scripture),
+  }
+}
+
 export async function createGracePost(payload, profile) {
   requireSupabaseConfigured()
   assertProfile(profile)
@@ -105,8 +226,7 @@ export async function createGracePost(payload, profile) {
   const { data, error } = await supabase
     .from(GRACE_TABLE)
     .insert({
-      title: payload.title.trim(),
-      content: payload.content.trim(),
+      ...toGraceMutationRow(payload),
       author_id: profile.id,
     })
     .select('*')
@@ -126,10 +246,7 @@ export async function updateGracePost(postId, payload) {
 
   const { data, error } = await supabase
     .from(GRACE_TABLE)
-    .update({
-      title: payload.title.trim(),
-      content: payload.content.trim(),
-    })
+    .update(toGraceMutationRow(payload))
     .eq('id', postId)
     .select('*')
     .single()

@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import EmptyState from '../components/common/EmptyState'
 import ErrorBanner from '../components/common/ErrorBanner'
+import Avatar from '../components/common/Avatar'
 import { useChatPage } from '../features/chat/hooks'
 
 const EMPTY_ROOM_FORM = {
   name: '',
   description: '',
 }
+const LONG_PRESS_DURATION_MS = 450
+const TOUCH_MOVE_CANCEL_PX = 12
 
 function isSubmitEnter(event) {
   return event.key === 'Enter' && !event.shiftKey && !event.nativeEvent?.isComposing
@@ -47,7 +50,18 @@ function ChatRooms() {
   const [editingMessageId, setEditingMessageId] = useState(null)
   const [editingDraft, setEditingDraft] = useState('')
   const [feedback, setFeedback] = useState('')
+  const [messageActionMenu, setMessageActionMenu] = useState({
+    open: false,
+    messageId: null,
+    x: 0,
+    y: 0,
+  })
   const composeTextareaRef = useRef(null)
+  const messageListRef = useRef(null)
+  const messageActionMenuRef = useRef(null)
+  const longPressTimerRef = useRef(null)
+  const touchStartRef = useRef({ x: 0, y: 0 })
+  const shouldScrollOnSentMessageRef = useRef(false)
 
   const {
     supabaseStatus,
@@ -70,6 +84,36 @@ function ChatRooms() {
     () => rooms.find((room) => room.id === activeRoomId) || null,
     [activeRoomId, rooms],
   )
+  const selectedContextMessage = useMemo(
+    () => messages.find((message) => message.id === messageActionMenu.messageId) || null,
+    [messageActionMenu.messageId, messages],
+  )
+
+  const closeMessageActionMenu = useCallback(() => {
+    setMessageActionMenu({
+      open: false,
+      messageId: null,
+      x: 0,
+      y: 0,
+    })
+  }, [])
+
+  const openMessageActionMenu = useCallback(
+    ({ messageId, x, y }) => {
+      const menuWidth = 172
+      const menuHeight = 108
+      const safeX = Math.max(8, Math.min(x, window.innerWidth - menuWidth - 8))
+      const safeY = Math.max(8, Math.min(y, window.innerHeight - menuHeight - 8))
+
+      setMessageActionMenu({
+        open: true,
+        messageId,
+        x: safeX,
+        y: safeY,
+      })
+    },
+    [],
+  )
 
   const focusComposeInput = useCallback(() => {
     if (!activeRoomId) {
@@ -84,6 +128,72 @@ function ChatRooms() {
   useEffect(() => {
     focusComposeInput()
   }, [focusComposeInput])
+
+  useEffect(() => {
+    if (!messageActionMenu.open) {
+      return undefined
+    }
+
+    const handlePointerDown = (event) => {
+      if (!messageActionMenuRef.current) {
+        closeMessageActionMenu()
+        return
+      }
+
+      if (!messageActionMenuRef.current.contains(event.target)) {
+        closeMessageActionMenu()
+      }
+    }
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        closeMessageActionMenu()
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [closeMessageActionMenu, messageActionMenu.open])
+
+  useEffect(
+    () => () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current)
+      }
+    },
+    [],
+  )
+
+  useEffect(() => {
+    if (!messageActionMenu.open) {
+      return
+    }
+
+    if (!messages.some((message) => message.id === messageActionMenu.messageId)) {
+      closeMessageActionMenu()
+    }
+  }, [closeMessageActionMenu, messageActionMenu.messageId, messageActionMenu.open, messages])
+
+  useEffect(() => {
+    if (!shouldScrollOnSentMessageRef.current) {
+      return
+    }
+
+    const listElement = messageListRef.current
+    if (!listElement) {
+      return
+    }
+
+    requestAnimationFrame(() => {
+      listElement.scrollTop = listElement.scrollHeight
+      shouldScrollOnSentMessageRef.current = false
+    })
+  }, [messages.length])
 
   const handleCreateRoom = async (event) => {
     event.preventDefault()
@@ -124,11 +234,14 @@ function ChatRooms() {
     }
 
     setFeedback('')
+    shouldScrollOnSentMessageRef.current = true
 
     try {
       await sendMessage({ roomId: activeRoomId, content: messageDraft })
       setMessageDraft('')
+      closeMessageActionMenu()
     } catch (sendError) {
+      shouldScrollOnSentMessageRef.current = false
       setFeedback(sendError.message)
     } finally {
       focusComposeInput()
@@ -154,6 +267,7 @@ function ChatRooms() {
     }
 
     setFeedback('')
+    closeMessageActionMenu()
 
     try {
       await deleteMessage(message.id)
@@ -192,6 +306,89 @@ function ChatRooms() {
     }
 
     event.currentTarget.form?.requestSubmit()
+  }
+
+  const clearLongPressTimer = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+  }
+
+  const handleMessageContextMenu = (event, message, canManage) => {
+    if (!canManage || message.isDeleted || editingMessageId === message.id) {
+      return
+    }
+
+    event.preventDefault()
+    openMessageActionMenu({
+      messageId: message.id,
+      x: event.clientX,
+      y: event.clientY,
+    })
+  }
+
+  const handleMessageTouchStart = (event, message, canManage) => {
+    if (!canManage || message.isDeleted || editingMessageId === message.id) {
+      return
+    }
+
+    if (event.touches.length !== 1) {
+      clearLongPressTimer()
+      return
+    }
+
+    const touch = event.touches[0]
+    touchStartRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+    }
+    clearLongPressTimer()
+    longPressTimerRef.current = setTimeout(() => {
+      openMessageActionMenu({
+        messageId: message.id,
+        x: touch.clientX,
+        y: touch.clientY,
+      })
+      clearLongPressTimer()
+    }, LONG_PRESS_DURATION_MS)
+  }
+
+  const handleMessageTouchMove = (event) => {
+    if (!longPressTimerRef.current || event.touches.length !== 1) {
+      return
+    }
+
+    const touch = event.touches[0]
+    const movedX = Math.abs(touch.clientX - touchStartRef.current.x)
+    const movedY = Math.abs(touch.clientY - touchStartRef.current.y)
+    if (movedX > TOUCH_MOVE_CANCEL_PX || movedY > TOUCH_MOVE_CANCEL_PX) {
+      clearLongPressTimer()
+    }
+  }
+
+  const handleMessageTouchEnd = () => {
+    clearLongPressTimer()
+  }
+
+  const handleContextEdit = () => {
+    if (!selectedContextMessage || selectedContextMessage.isDeleted) {
+      closeMessageActionMenu()
+      return
+    }
+
+    setEditingMessageId(selectedContextMessage.id)
+    setEditingDraft(selectedContextMessage.content || '')
+    closeMessageActionMenu()
+  }
+
+  const handleContextDelete = () => {
+    if (!selectedContextMessage || selectedContextMessage.isDeleted) {
+      closeMessageActionMenu()
+      return
+    }
+
+    handleDeleteMessage(selectedContextMessage)
   }
 
   return (
@@ -317,7 +514,15 @@ function ChatRooms() {
                 ) : null}
               </div>
 
-              <div className="chat-message-list">
+              <div
+                className="chat-message-list"
+                ref={messageListRef}
+                onScroll={() => {
+                  if (messageActionMenu.open) {
+                    closeMessageActionMenu()
+                  }
+                }}
+              >
                 {isMessagesLoading ? (
                   <p style={{ color: 'var(--text-secondary)' }}>메시지를 불러오는 중입니다...</p>
                 ) : messages.length === 0 ? (
@@ -331,76 +536,61 @@ function ChatRooms() {
                     const alignmentClass = message.isMine ? 'mine' : 'other'
 
                     return (
-                      <article
+                      <div
                         key={message.id}
-                        className={`chat-message-item ${alignmentClass} ${isEditing ? 'editing' : ''}`}
+                        className={`chat-message-wrapper ${alignmentClass} ${isEditing ? 'editing' : ''} ${
+                          messageActionMenu.open && messageActionMenu.messageId === message.id ? 'context-open' : ''
+                        }`}
+                        onContextMenu={(event) => handleMessageContextMenu(event, message, canManage)}
+                        onTouchStart={(event) => handleMessageTouchStart(event, message, canManage)}
+                        onTouchMove={handleMessageTouchMove}
+                        onTouchEnd={handleMessageTouchEnd}
+                        onTouchCancel={handleMessageTouchEnd}
                       >
-                        <div className={`chat-message-meta ${alignmentClass}`}>
-                          {!message.isMine ? <p style={{ fontWeight: 700 }}>{message.authorName}</p> : null}
-                          <span>{formatDateTime(message.createdAt)}</span>
-                          {message.editedAt ? <span>수정됨</span> : null}
-                        </div>
-
-                        {isEditing ? (
-                          <form className="chat-message-edit-form" onSubmit={(event) => handleEditMessage(event, message.id)}>
-                            <textarea
-                              rows={3}
-                              value={editingDraft}
-                              onChange={(event) => setEditingDraft(event.target.value)}
-                              onKeyDown={handleEditKeyDown}
-                              required
-                            />
-                            <div className="chat-message-edit-actions">
-                              <button
-                                type="button"
-                                className="btn-secondary"
-                                onClick={() => {
-                                  setEditingMessageId(null)
-                                  setEditingDraft('')
-                                }}
-                                disabled={isSubmitting}
-                              >
-                                취소
-                              </button>
-                              <button type="submit" className="btn-primary" disabled={isSubmitting || !editingDraft.trim()}>
-                                {isSubmitting ? '저장 중...' : '저장'}
-                              </button>
-                            </div>
-                          </form>
-                        ) : (
-                          <p className="chat-message-content">
-                            {message.isDeleted ? '삭제된 메시지입니다.' : message.content || '삭제된 메시지입니다.'}
-                          </p>
-                        )}
-
-                        {!isEditing ? (
-                          <div className={`chat-message-actions ${alignmentClass}`}>
-                            {canManage ? (
-                              <button
-                                type="button"
-                                className="btn-secondary"
-                                onClick={() => {
-                                  setEditingMessageId(message.id)
-                                  setEditingDraft(message.content || '')
-                                }}
-                                disabled={isSubmitting || message.isDeleted}
-                              >
-                                수정
-                              </button>
-                            ) : null}
-                            {canManage ? (
-                              <button
-                                type="button"
-                                className="btn-secondary admin-danger-button"
-                                onClick={() => handleDeleteMessage(message)}
-                                disabled={isSubmitting || message.isDeleted}
-                              >
-                                삭제
-                              </button>
-                            ) : null}
+                        {!message.isMine && <Avatar name={message.authorName} size={36} style={{ marginTop: '0.15rem' }} />}
+                        <article
+                          className={`chat-message-item ${alignmentClass} ${isEditing ? 'editing' : ''}`}
+                        >
+                          <div className={`chat-message-meta ${alignmentClass}`}>
+                            {!message.isMine ? <p style={{ fontWeight: 700 }}>{message.authorName}</p> : null}
+                            <span>{formatDateTime(message.createdAt)}</span>
+                            {message.editedAt ? <span>수정됨</span> : null}
                           </div>
-                        ) : null}
-                      </article>
+
+                          {isEditing ? (
+                            <form className="chat-message-edit-form" onSubmit={(event) => handleEditMessage(event, message.id)}>
+                              <textarea
+                                rows={3}
+                                value={editingDraft}
+                                onChange={(event) => setEditingDraft(event.target.value)}
+                                onKeyDown={handleEditKeyDown}
+                                required
+                              />
+                              <div className="chat-message-edit-actions">
+                                <button
+                                  type="button"
+                                  className="btn-secondary"
+                                  onClick={() => {
+                                    setEditingMessageId(null)
+                                    setEditingDraft('')
+                                  }}
+                                  disabled={isSubmitting}
+                                >
+                                  취소
+                                </button>
+                                <button type="submit" className="btn-primary" disabled={isSubmitting || !editingDraft.trim()}>
+                                  {isSubmitting ? '저장 중...' : '저장'}
+                                </button>
+                              </div>
+                            </form>
+                          ) : (
+                            <p className="chat-message-content">
+                              {message.isDeleted ? '삭제된 메시지입니다.' : message.content || '삭제된 메시지입니다.'}
+                            </p>
+                          )}
+
+                        </article>
+                      </div>
                     )
                   })
                 )}
@@ -427,6 +617,44 @@ function ChatRooms() {
                   </button>
                 </div>
               </form>
+
+              {messageActionMenu.open ? (
+                <div
+                  ref={messageActionMenuRef}
+                  className="chat-message-context-menu"
+                  style={{
+                    top: `${messageActionMenu.y}px`,
+                    left: `${messageActionMenu.x}px`,
+                  }}
+                  role="menu"
+                  aria-label="메시지 옵션"
+                >
+                  <button
+                    type="button"
+                    className="chat-message-context-item"
+                    onClick={handleContextEdit}
+                    disabled={
+                      isSubmitting ||
+                      !selectedContextMessage ||
+                      selectedContextMessage.isDeleted
+                    }
+                  >
+                    수정
+                  </button>
+                  <button
+                    type="button"
+                    className="chat-message-context-item danger"
+                    onClick={handleContextDelete}
+                    disabled={
+                      isSubmitting ||
+                      !selectedContextMessage ||
+                      selectedContextMessage.isDeleted
+                    }
+                  >
+                    삭제
+                  </button>
+                </div>
+              ) : null}
             </>
           )}
         </div>

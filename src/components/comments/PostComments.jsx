@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import ErrorBanner from '../common/ErrorBanner'
+import Avatar from '../common/Avatar'
 import { usePostComments } from '../../features/comments/hooks'
 
 const MAX_INDENT_DEPTH = 10
@@ -135,65 +136,68 @@ function CommentNode({
 
   return (
     <div className="comment-node" style={{ marginLeft: `${indent}px` }}>
-      <div className="comment-node-main">
-        <div className="comment-node-meta">
-          <span style={{ fontWeight: 600 }}>{node.authorName}</span>
-          <span>{formatDateTime(node.createdAt)}</span>
-          {node.editedAt ? <span>수정됨</span> : null}
-        </div>
-
-        {isEditing ? (
-          <CommentComposer
-            value={editingDraft}
-            onChange={onEditingDraftChange}
-            onSubmit={(event) => onEditSubmit(event, node)}
-            onCancel={onEditCancel}
-            placeholder="댓글을 수정하세요"
-            submitLabel={isSubmitting ? '저장 중...' : '수정 저장'}
-            disabled={isSubmitting}
-            autoFocus
-          />
-        ) : (
-          <p className="comment-node-content">
-            {node.isDeleted ? '삭제된 댓글입니다.' : node.content || '삭제된 댓글입니다.'}
-          </p>
-        )}
-
-        {!isEditing ? (
-          <div className="comment-node-actions">
-            <button type="button" className="btn-secondary" onClick={() => onReplyOpen(node.id)} disabled={isSubmitting}>
-              답글
-            </button>
-            {canManage ? (
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => onEditOpen(node)}
-                disabled={isSubmitting || node.isDeleted}
-              >
-                수정
-              </button>
-            ) : null}
-            {canManage ? (
-              <button type="button" className="btn-secondary admin-danger-button" onClick={() => onDelete(node)} disabled={isSubmitting || node.isDeleted}>
-                삭제
-              </button>
-            ) : null}
+      <div className="comment-node-main" style={{ display: 'flex', gap: '0.8rem', alignItems: 'flex-start' }}>
+        <Avatar name={node.authorName} size={36} style={{ marginTop: '0.15rem' }} />
+        <div style={{ flex: 1, minWidth: 0, display: 'grid', gap: '0.6rem' }}>
+          <div className="comment-node-meta">
+            <span style={{ fontWeight: 600 }}>{node.authorName}</span>
+            <span>{formatDateTime(node.createdAt)}</span>
+            {node.editedAt ? <span>수정됨</span> : null}
           </div>
-        ) : null}
 
-        {isReplyOpen ? (
-          <CommentComposer
-            value={replyDraft}
-            onChange={onReplyDraftChange}
-            onSubmit={(event) => onReplySubmit(event, node)}
-            onCancel={onReplyCancel}
-            placeholder="답글을 입력하세요"
-            submitLabel={isSubmitting ? '등록 중...' : '답글 등록'}
-            disabled={isSubmitting}
-            autoFocus
-          />
-        ) : null}
+          {isEditing ? (
+            <CommentComposer
+              value={editingDraft}
+              onChange={onEditingDraftChange}
+              onSubmit={(event) => onEditSubmit(event, node)}
+              onCancel={onEditCancel}
+              placeholder="댓글을 수정하세요"
+              submitLabel={isSubmitting ? '저장 중...' : '수정 저장'}
+              disabled={isSubmitting}
+              autoFocus
+            />
+          ) : (
+            <p className="comment-node-content">
+              {node.isDeleted ? '삭제된 댓글입니다.' : node.content || '삭제된 댓글입니다.'}
+            </p>
+          )}
+
+          {!isEditing ? (
+            <div className="comment-node-actions">
+              <button type="button" className="btn-secondary" onClick={() => onReplyOpen(node.id)} disabled={isSubmitting}>
+                답글
+              </button>
+              {canManage ? (
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => onEditOpen(node)}
+                  disabled={isSubmitting || node.isDeleted}
+                >
+                  수정
+                </button>
+              ) : null}
+              {canManage ? (
+                <button type="button" className="btn-secondary admin-danger-button" onClick={() => onDelete(node)} disabled={isSubmitting || node.isDeleted}>
+                  삭제
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+
+          {isReplyOpen ? (
+            <CommentComposer
+              value={replyDraft}
+              onChange={onReplyDraftChange}
+              onSubmit={(event) => onReplySubmit(event, node)}
+              onCancel={onReplyCancel}
+              placeholder="답글을 입력하세요"
+              submitLabel={isSubmitting ? '등록 중...' : '답글 등록'}
+              disabled={isSubmitting}
+              autoFocus
+            />
+          ) : null}
+        </div>
       </div>
 
       {node.children.length > 0 ? (

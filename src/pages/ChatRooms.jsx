@@ -1,37 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import EmptyState from '../components/common/EmptyState'
 import ErrorBanner from '../components/common/ErrorBanner'
-import Avatar from '../components/common/Avatar'
+import ChatComposer from '../features/chat/components/ChatComposer'
+import ChatMessageItem from '../features/chat/components/ChatMessageItem'
 import MessageContextMenu from '../features/chat/components/MessageContextMenu'
+import { useLongPressContextMenu } from '../features/chat/hooks/useLongPressContextMenu'
+import { useMessageActionMenu } from '../features/chat/hooks/useMessageActionMenu'
 import { useChatPage } from '../features/chat/hooks'
+import { formatChatDateTime, isSubmitEnter } from '../features/chat/utils/chatUi'
 
 const EMPTY_ROOM_FORM = {
   name: '',
   description: '',
-}
-const LONG_PRESS_DURATION_MS = 450
-const TOUCH_MOVE_CANCEL_PX = 12
-
-function isSubmitEnter(event) {
-  return event.key === 'Enter' && !event.shiftKey && !event.nativeEvent?.isComposing
-}
-
-function formatDateTime(value) {
-  if (!value) {
-    return '시간 미정'
-  }
-
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return '시간 미정'
-  }
-
-  return new Intl.DateTimeFormat('ko-KR', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date)
 }
 
 function InfoBanner({ message }) {
@@ -51,17 +31,9 @@ function ChatRooms() {
   const [editingMessageId, setEditingMessageId] = useState(null)
   const [editingDraft, setEditingDraft] = useState('')
   const [feedback, setFeedback] = useState('')
-  const [messageActionMenu, setMessageActionMenu] = useState({
-    open: false,
-    messageId: null,
-    x: 0,
-    y: 0,
-  })
+
   const composeTextareaRef = useRef(null)
   const messageListRef = useRef(null)
-  const messageActionMenuRef = useRef(null)
-  const longPressTimerRef = useRef(null)
-  const touchStartRef = useRef({ x: 0, y: 0 })
   const shouldScrollOnSentMessageRef = useRef(false)
 
   const {
@@ -81,39 +53,17 @@ function ChatRooms() {
     isSubmitting,
   } = useChatPage({ selectedRoomId })
 
+  const {
+    menu: messageActionMenu,
+    menuRef: messageActionMenuRef,
+    selectedMessage: selectedContextMessage,
+    openMenu: openMessageActionMenu,
+    closeMenu: closeMessageActionMenu,
+  } = useMessageActionMenu(messages)
+
   const selectedRoom = useMemo(
     () => rooms.find((room) => room.id === activeRoomId) || null,
     [activeRoomId, rooms],
-  )
-  const selectedContextMessage = useMemo(
-    () => messages.find((message) => message.id === messageActionMenu.messageId) || null,
-    [messageActionMenu.messageId, messages],
-  )
-
-  const closeMessageActionMenu = useCallback(() => {
-    setMessageActionMenu({
-      open: false,
-      messageId: null,
-      x: 0,
-      y: 0,
-    })
-  }, [])
-
-  const openMessageActionMenu = useCallback(
-    ({ messageId, x, y }) => {
-      const menuWidth = 172
-      const menuHeight = 108
-      const safeX = Math.max(8, Math.min(x, window.innerWidth - menuWidth - 8))
-      const safeY = Math.max(8, Math.min(y, window.innerHeight - menuHeight - 8))
-
-      setMessageActionMenu({
-        open: true,
-        messageId,
-        x: safeX,
-        y: safeY,
-      })
-    },
-    [],
   )
 
   const focusComposeInput = useCallback(() => {
@@ -131,56 +81,6 @@ function ChatRooms() {
   }, [focusComposeInput])
 
   useEffect(() => {
-    if (!messageActionMenu.open) {
-      return undefined
-    }
-
-    const handlePointerDown = (event) => {
-      if (!messageActionMenuRef.current) {
-        closeMessageActionMenu()
-        return
-      }
-
-      if (!messageActionMenuRef.current.contains(event.target)) {
-        closeMessageActionMenu()
-      }
-    }
-
-    const handleKeyDown = (event) => {
-      if (event.key === 'Escape') {
-        closeMessageActionMenu()
-      }
-    }
-
-    document.addEventListener('pointerdown', handlePointerDown)
-    document.addEventListener('keydown', handleKeyDown)
-
-    return () => {
-      document.removeEventListener('pointerdown', handlePointerDown)
-      document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [closeMessageActionMenu, messageActionMenu.open])
-
-  useEffect(
-    () => () => {
-      if (longPressTimerRef.current) {
-        clearTimeout(longPressTimerRef.current)
-      }
-    },
-    [],
-  )
-
-  useEffect(() => {
-    if (!messageActionMenu.open) {
-      return
-    }
-
-    if (!messages.some((message) => message.id === messageActionMenu.messageId)) {
-      closeMessageActionMenu()
-    }
-  }, [closeMessageActionMenu, messageActionMenu.messageId, messageActionMenu.open, messages])
-
-  useEffect(() => {
     if (!shouldScrollOnSentMessageRef.current) {
       return
     }
@@ -195,6 +95,22 @@ function ChatRooms() {
       shouldScrollOnSentMessageRef.current = false
     })
   }, [messages.length])
+
+  const handleLongPressOpen = useCallback(
+    ({ payload, x, y }) => {
+      const message = payload?.message
+      const canManage = payload?.canManage
+
+      if (!message || !canManage || message.isDeleted || editingMessageId === message.id) {
+        return
+      }
+
+      openMessageActionMenu({ messageId: message.id, x, y })
+    },
+    [editingMessageId, openMessageActionMenu],
+  )
+
+  const longPressContextMenu = useLongPressContextMenu(handleLongPressOpen)
 
   const handleCreateRoom = async (event) => {
     event.preventDefault()
@@ -257,6 +173,7 @@ function ChatRooms() {
       await updateMessage({ messageId, content: editingDraft })
       setEditingMessageId(null)
       setEditingDraft('')
+      closeMessageActionMenu()
     } catch (updateError) {
       setFeedback(updateError.message)
     }
@@ -309,13 +226,6 @@ function ChatRooms() {
     event.currentTarget.form?.requestSubmit()
   }
 
-  const clearLongPressTimer = () => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current)
-      longPressTimerRef.current = null
-    }
-  }
-
   const handleMessageContextMenu = (event, message, canManage) => {
     if (!canManage || message.isDeleted || editingMessageId === message.id) {
       return
@@ -330,46 +240,8 @@ function ChatRooms() {
   }
 
   const handleMessageTouchStart = (event, message, canManage) => {
-    if (!canManage || message.isDeleted || editingMessageId === message.id) {
-      return
-    }
-
-    if (event.touches.length !== 1) {
-      clearLongPressTimer()
-      return
-    }
-
-    const touch = event.touches[0]
-    touchStartRef.current = {
-      x: touch.clientX,
-      y: touch.clientY,
-    }
-    clearLongPressTimer()
-    longPressTimerRef.current = setTimeout(() => {
-      openMessageActionMenu({
-        messageId: message.id,
-        x: touch.clientX,
-        y: touch.clientY,
-      })
-      clearLongPressTimer()
-    }, LONG_PRESS_DURATION_MS)
-  }
-
-  const handleMessageTouchMove = (event) => {
-    if (!longPressTimerRef.current || event.touches.length !== 1) {
-      return
-    }
-
-    const touch = event.touches[0]
-    const movedX = Math.abs(touch.clientX - touchStartRef.current.x)
-    const movedY = Math.abs(touch.clientY - touchStartRef.current.y)
-    if (movedX > TOUCH_MOVE_CANCEL_PX || movedY > TOUCH_MOVE_CANCEL_PX) {
-      clearLongPressTimer()
-    }
-  }
-
-  const handleMessageTouchEnd = () => {
-    clearLongPressTimer()
+    const enabled = Boolean(canManage && !message.isDeleted && editingMessageId !== message.id)
+    longPressContextMenu.onTouchStart(event, { message, canManage }, enabled)
   }
 
   const handleContextEdit = () => {
@@ -468,7 +340,7 @@ function ChatRooms() {
                       <p style={{ fontWeight: 700 }}>{room.name}</p>
                       {room.lastMessageAt ? (
                         <span style={{ color: 'var(--text-tertiary)', fontSize: '0.72rem' }}>
-                          {formatDateTime(room.lastMessageAt)}
+                          {formatChatDateTime(room.lastMessageAt)}
                         </span>
                       ) : null}
                     </div>
@@ -533,94 +405,46 @@ function ChatRooms() {
                     const canManage = Boolean(
                       profile && (profile.role === 'admin' || (message.authorId && profile.id === message.authorId)),
                     )
-                    const isEditing = editingMessageId === message.id
-                    const alignmentClass = message.isMine ? 'mine' : 'other'
 
                     return (
-                      <div
+                      <ChatMessageItem
                         key={message.id}
-                        className={`chat-message-wrapper ${alignmentClass} ${isEditing ? 'editing' : ''} ${
-                          messageActionMenu.open && messageActionMenu.messageId === message.id ? 'context-open' : ''
-                        }`}
-                        onContextMenu={(event) => handleMessageContextMenu(event, message, canManage)}
-                        onTouchStart={(event) => handleMessageTouchStart(event, message, canManage)}
-                        onTouchMove={handleMessageTouchMove}
-                        onTouchEnd={handleMessageTouchEnd}
-                        onTouchCancel={handleMessageTouchEnd}
-                      >
-                        {!message.isMine && <Avatar name={message.authorName} size={36} style={{ marginTop: '0.15rem' }} />}
-                        <article
-                          className={`chat-message-item ${alignmentClass} ${isEditing ? 'editing' : ''}`}
-                        >
-                          <div className={`chat-message-meta ${alignmentClass}`}>
-                            {!message.isMine ? <p style={{ fontWeight: 700 }}>{message.authorName}</p> : null}
-                            <span>{formatDateTime(message.createdAt)}</span>
-                            {message.editedAt ? <span>수정됨</span> : null}
-                          </div>
-
-                          {isEditing ? (
-                            <form className="chat-message-edit-form" onSubmit={(event) => handleEditMessage(event, message.id)}>
-                              <textarea
-                                rows={3}
-                                value={editingDraft}
-                                onChange={(event) => setEditingDraft(event.target.value)}
-                                onKeyDown={handleEditKeyDown}
-                                required
-                              />
-                              <div className="chat-message-edit-actions">
-                                <button
-                                  type="button"
-                                  className="btn-secondary"
-                                  onClick={() => {
-                                    setEditingMessageId(null)
-                                    setEditingDraft('')
-                                  }}
-                                  disabled={isSubmitting}
-                                >
-                                  취소
-                                </button>
-                                <button type="submit" className="btn-primary" disabled={isSubmitting || !editingDraft.trim()}>
-                                  {isSubmitting ? '저장 중...' : '저장'}
-                                </button>
-                              </div>
-                            </form>
-                          ) : (
-                            <p className="chat-message-content">
-                              {message.isDeleted ? '삭제된 메시지입니다.' : message.content || '삭제된 메시지입니다.'}
-                            </p>
-                          )}
-
-                        </article>
-                      </div>
+                        message={message}
+                        canManage={canManage}
+                        isEditing={editingMessageId === message.id}
+                        isSubmitting={isSubmitting}
+                        isContextOpen={messageActionMenu.open && messageActionMenu.messageId === message.id}
+                        editingDraft={editingDraft}
+                        onEditingDraftChange={setEditingDraft}
+                        onEditSubmit={handleEditMessage}
+                        onEditKeyDown={handleEditKeyDown}
+                        onEditCancel={() => {
+                          setEditingMessageId(null)
+                          setEditingDraft('')
+                        }}
+                        onContextMenu={handleMessageContextMenu}
+                        onTouchStart={handleMessageTouchStart}
+                        onTouchMove={longPressContextMenu.onTouchMove}
+                        onTouchEnd={longPressContextMenu.onTouchEnd}
+                        onTouchCancel={longPressContextMenu.onTouchCancel}
+                      />
                     )
                   })
                 )}
               </div>
 
-              <form className="chat-message-compose-form" onSubmit={handleSendMessage}>
-                <textarea
-                  ref={composeTextareaRef}
-                  rows={3}
-                  value={messageDraft}
-                  onChange={(event) => setMessageDraft(event.target.value)}
-                  onKeyDown={handleComposeKeyDown}
-                  placeholder="메시지를 입력하세요"
-                  required
-                  disabled={!supabaseStatus.configured || isSubmitting || !activeRoomId}
-                />
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <button
-                    type="submit"
-                    className="btn-primary"
-                    disabled={!supabaseStatus.configured || isSubmitting || !activeRoomId || !messageDraft.trim()}
-                  >
-                    {isSubmitting ? '전송 중...' : '전송'}
-                  </button>
-                </div>
-              </form>
+              <ChatComposer
+                textareaRef={composeTextareaRef}
+                value={messageDraft}
+                onChange={setMessageDraft}
+                onKeyDown={handleComposeKeyDown}
+                onSubmit={handleSendMessage}
+                disabled={!supabaseStatus.configured || isSubmitting || !activeRoomId}
+                isSubmitting={isSubmitting}
+              />
 
               <MessageContextMenu
-                open={messageActionMenu.open}
+                open={messageActionMenu.open && Boolean(selectedContextMessage)}
                 x={messageActionMenu.x}
                 y={messageActionMenu.y}
                 menuRef={messageActionMenuRef}

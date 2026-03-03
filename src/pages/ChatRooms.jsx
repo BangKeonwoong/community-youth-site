@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import EmptyState from '../components/common/EmptyState'
 import ErrorBanner from '../components/common/ErrorBanner'
 import Avatar from '../components/common/Avatar'
+import MessageContextMenu from '../features/chat/components/MessageContextMenu'
 import { useChatPage } from '../features/chat/hooks'
 
 const EMPTY_ROOM_FORM = {
@@ -618,43 +619,24 @@ function ChatRooms() {
                 </div>
               </form>
 
-              {messageActionMenu.open ? (
-                <div
-                  ref={messageActionMenuRef}
-                  className="chat-message-context-menu"
-                  style={{
-                    top: `${messageActionMenu.y}px`,
-                    left: `${messageActionMenu.x}px`,
-                  }}
-                  role="menu"
-                  aria-label="메시지 옵션"
-                >
-                  <button
-                    type="button"
-                    className="chat-message-context-item"
-                    onClick={handleContextEdit}
-                    disabled={
-                      isSubmitting ||
-                      !selectedContextMessage ||
-                      selectedContextMessage.isDeleted
-                    }
-                  >
-                    수정
-                  </button>
-                  <button
-                    type="button"
-                    className="chat-message-context-item danger"
-                    onClick={handleContextDelete}
-                    disabled={
-                      isSubmitting ||
-                      !selectedContextMessage ||
-                      selectedContextMessage.isDeleted
-                    }
-                  >
-                    삭제
-                  </button>
-                </div>
-              ) : null}
+              <MessageContextMenu
+                open={messageActionMenu.open}
+                x={messageActionMenu.x}
+                y={messageActionMenu.y}
+                menuRef={messageActionMenuRef}
+                onEdit={handleContextEdit}
+                onDelete={handleContextDelete}
+                disabledEdit={
+                  isSubmitting ||
+                  !selectedContextMessage ||
+                  selectedContextMessage.isDeleted
+                }
+                disabledDelete={
+                  isSubmitting ||
+                  !selectedContextMessage ||
+                  selectedContextMessage.isDeleted
+                }
+              />
             </>
           )}
         </div>

@@ -3,6 +3,7 @@ import { Outlet, Link, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   Home,
+  CalendarDays,
   Users,
   Heart,
   BookOpen,
@@ -19,6 +20,7 @@ import { useAuth } from '../hooks/useAuth'
 const PROFILE_QUERY_KEY = ['profile']
 const BASE_NAV_ITEMS = [
   { name: '홈', path: '/', icon: Home },
+  { name: '일정', path: '/schedule', icon: CalendarDays },
   { name: '생일', path: '/birthdays', icon: Cake },
   { name: '메시지', path: '/messages', icon: MessageSquare },
   { name: '벙개', path: '/meetups', icon: Users },

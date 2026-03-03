@@ -10,6 +10,7 @@ import Messages from './pages/Messages'
 import PrayerRequests from './pages/PrayerRequests'
 import ProfileComplete from './pages/ProfileComplete'
 import PraiseRecommendations from './pages/PraiseRecommendations'
+import Schedule from './pages/Schedule'
 import SetPassword from './pages/SetPassword'
 import GuestOnly from './routes/GuestOnly'
 import RequireAdmin from './routes/RequireAdmin'
@@ -31,6 +32,7 @@ function App() {
             <Route element={<RequireProfileComplete />}>
               <Route index element={<Dashboard />} />
               <Route path="meetups" element={<Meetups />} />
+              <Route path="schedule" element={<Schedule />} />
               <Route path="grace" element={<GraceSharing />} />
               <Route path="prayer" element={<PrayerRequests />} />
               <Route path="praise" element={<PraiseRecommendations />} />

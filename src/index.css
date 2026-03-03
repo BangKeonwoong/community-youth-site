@@ -865,6 +865,22 @@ button {
   padding: 0.8rem;
   display: grid;
   gap: 0.52rem;
+  width: fit-content;
+  max-width: 72%;
+}
+
+.chat-message-item.other {
+  margin-right: auto;
+}
+
+.chat-message-item.mine {
+  margin-left: auto;
+  background-color: var(--accent-light);
+  border-color: var(--accent-primary);
+}
+
+.chat-message-item.editing {
+  max-width: min(86%, 760px);
 }
 
 .chat-message-meta {
@@ -874,6 +890,10 @@ button {
   gap: 0.35rem 0.55rem;
   color: var(--text-secondary);
   font-size: 0.78rem;
+}
+
+.chat-message-meta.mine {
+  justify-content: flex-end;
 }
 
 .chat-message-content {
@@ -888,6 +908,10 @@ button {
   justify-content: flex-end;
   gap: 0.45rem;
   flex-wrap: wrap;
+}
+
+.chat-message-actions.other {
+  justify-content: flex-start;
 }
 
 .chat-message-actions .btn-secondary {
@@ -1309,6 +1333,18 @@ button {
   .chat-message-list {
     min-height: 220px;
     max-height: 44vh;
+  }
+
+  .chat-message-item {
+    max-width: 90%;
+  }
+
+  .chat-message-item .chat-message-actions {
+    width: auto;
+  }
+
+  .chat-message-item .chat-message-actions>button {
+    flex: 0 0 auto;
   }
 
   .chat-room-create-form>div,

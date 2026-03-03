@@ -1,4 +1,5 @@
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
+import DocumentTitleManager from './components/common/DocumentTitleManager'
 import Layout from './components/Layout'
 import AdminPage from './pages/AdminPage'
 import Birthdays from './pages/Birthdays'
@@ -21,6 +22,7 @@ import RequireProfileComplete from './routes/RequireProfileComplete'
 function App() {
   return (
     <HashRouter>
+      <DocumentTitleManager />
       <Routes>
         <Route element={<GuestOnly />}>
           <Route path="/login" element={<Login />} />

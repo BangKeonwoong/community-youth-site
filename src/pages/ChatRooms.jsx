@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import EmptyState from '../components/common/EmptyState'
 import ErrorBanner from '../components/common/ErrorBanner'
 import { useChatPage } from '../features/chat/hooks'
@@ -47,6 +47,7 @@ function ChatRooms() {
   const [editingMessageId, setEditingMessageId] = useState(null)
   const [editingDraft, setEditingDraft] = useState('')
   const [feedback, setFeedback] = useState('')
+  const composeTextareaRef = useRef(null)
 
   const {
     supabaseStatus,
@@ -69,6 +70,20 @@ function ChatRooms() {
     () => rooms.find((room) => room.id === activeRoomId) || null,
     [activeRoomId, rooms],
   )
+
+  const focusComposeInput = useCallback(() => {
+    if (!activeRoomId) {
+      return
+    }
+
+    requestAnimationFrame(() => {
+      composeTextareaRef.current?.focus()
+    })
+  }, [activeRoomId])
+
+  useEffect(() => {
+    focusComposeInput()
+  }, [focusComposeInput])
 
   const handleCreateRoom = async (event) => {
     event.preventDefault()
@@ -115,6 +130,8 @@ function ChatRooms() {
       setMessageDraft('')
     } catch (sendError) {
       setFeedback(sendError.message)
+    } finally {
+      focusComposeInput()
     }
   }
 
@@ -311,11 +328,15 @@ function ChatRooms() {
                       profile && (profile.role === 'admin' || (message.authorId && profile.id === message.authorId)),
                     )
                     const isEditing = editingMessageId === message.id
+                    const alignmentClass = message.isMine ? 'mine' : 'other'
 
                     return (
-                      <article key={message.id} className="chat-message-item">
-                        <div className="chat-message-meta">
-                          <p style={{ fontWeight: 700 }}>{message.authorName}</p>
+                      <article
+                        key={message.id}
+                        className={`chat-message-item ${alignmentClass} ${isEditing ? 'editing' : ''}`}
+                      >
+                        <div className={`chat-message-meta ${alignmentClass}`}>
+                          {!message.isMine ? <p style={{ fontWeight: 700 }}>{message.authorName}</p> : null}
                           <span>{formatDateTime(message.createdAt)}</span>
                           {message.editedAt ? <span>수정됨</span> : null}
                         </div>
@@ -353,7 +374,7 @@ function ChatRooms() {
                         )}
 
                         {!isEditing ? (
-                          <div className="chat-message-actions">
+                          <div className={`chat-message-actions ${alignmentClass}`}>
                             {canManage ? (
                               <button
                                 type="button"
@@ -387,6 +408,7 @@ function ChatRooms() {
 
               <form className="chat-message-compose-form" onSubmit={handleSendMessage}>
                 <textarea
+                  ref={composeTextareaRef}
                   rows={3}
                   value={messageDraft}
                   onChange={(event) => setMessageDraft(event.target.value)}

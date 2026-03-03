@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 import { ChevronLeft, ChevronRight, Pencil, Trash2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import EmptyState from '../components/common/EmptyState'
@@ -301,6 +301,202 @@ function InfoBanner({ message }) {
   )
 }
 
+function CalendarDayCell({ day, selectedDateKey, items, onItemClick, onSelectDate }) {
+  const visibleItems = items.slice(0, MAX_CHIPS_PER_DAY)
+  const hiddenCount = Math.max(items.length - visibleItems.length, 0)
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      className={`schedule-day-cell ${
+        day.inCurrentMonth ? '' : 'outside'
+      } ${day.dateKey === selectedDateKey ? 'selected' : ''}`}
+      onClick={() => onSelectDate(day.dateKey)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          onSelectDate(day.dateKey)
+        }
+      }}
+    >
+      <div className="schedule-day-header">
+        <span>{day.day}</span>
+      </div>
+
+      <div className="schedule-day-items">
+        {visibleItems.map((item) => (
+          <button
+            key={`${day.dateKey}-${item.id}`}
+            type="button"
+            className={`schedule-chip ${item.sourceType}`}
+            onClick={(event) => {
+              event.stopPropagation()
+              onItemClick(item, day.dateKey)
+            }}
+          >
+            <span className="schedule-chip-type">{getTypeLabel(item.sourceType)}</span>
+            <span className="schedule-chip-title">{item.title}</span>
+          </button>
+        ))}
+
+        {hiddenCount > 0 ? <p className="schedule-chip-more">+{hiddenCount}개 더</p> : null}
+      </div>
+    </div>
+  )
+}
+
+function ScheduleDetailItem({ item, selectedDateKey, isAdmin, isSubmitting, onOpenEditForm, onDeleteEvent }) {
+  return (
+    <article key={`${selectedDateKey}-${item.id}`} className="schedule-detail-item">
+      <div className="schedule-detail-title-row">
+        <span className={`schedule-type-badge ${item.sourceType}`}>{getTypeLabel(item.sourceType)}</span>
+        <p style={{ fontWeight: 700 }}>{item.title}</p>
+      </div>
+
+      <p className="schedule-detail-meta">{formatTimeRange(item)}</p>
+      {item.location ? <p className="schedule-detail-meta">장소: {item.location}</p> : null}
+      {item.description ? <p style={{ whiteSpace: 'pre-wrap' }}>{item.description}</p> : null}
+
+      {isAdmin && item.sourceType === 'event' ? (
+        <div className="schedule-detail-actions">
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => onOpenEditForm(item)}
+            disabled={isSubmitting}
+          >
+            <Pencil size={15} /> 수정
+          </button>
+          <button
+            type="button"
+            className="btn-secondary admin-danger-button"
+            onClick={() => onDeleteEvent(item.sourceId)}
+            disabled={isSubmitting}
+          >
+            <Trash2 size={15} /> 삭제
+          </button>
+        </div>
+      ) : null}
+    </article>
+  )
+}
+
+function ScheduleEventForm({ form, setForm, editingEventId, isSubmitting, feedback, onSubmit, onCancel }) {
+  return (
+    <section className="glass schedule-form-card">
+      <h2 style={{ fontSize: '1.05rem', marginBottom: '0.7rem' }}>{editingEventId ? '행사 수정' : '행사 추가'}</h2>
+
+      {feedback ? <ErrorBanner message={feedback} /> : null}
+
+      <form className="schedule-event-form" onSubmit={onSubmit}>
+        <div className="schedule-form-field">
+          <label htmlFor="schedule-event-title">제목</label>
+          <input
+            id="schedule-event-title"
+            value={form.title}
+            onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
+            placeholder="예: 여름 수련회"
+            required
+          />
+        </div>
+
+        <div className="schedule-form-field schedule-switch-field">
+          <label htmlFor="schedule-event-all-day">종일 일정</label>
+          <input
+            id="schedule-event-all-day"
+            type="checkbox"
+            checked={form.isAllDay}
+            onChange={(event) => setForm((prev) => ({ ...prev, isAllDay: event.target.checked }))}
+          />
+        </div>
+
+        <div className="schedule-form-field">
+          <label htmlFor="schedule-event-start-date">시작일</label>
+          <input
+            id="schedule-event-start-date"
+            type="date"
+            value={form.startDate}
+            onChange={(event) => setForm((prev) => ({ ...prev, startDate: event.target.value }))}
+            required
+          />
+        </div>
+
+        <div className="schedule-form-field">
+          <label htmlFor="schedule-event-end-date">종료일</label>
+          <input
+            id="schedule-event-end-date"
+            type="date"
+            value={form.endDate}
+            onChange={(event) => setForm((prev) => ({ ...prev, endDate: event.target.value }))}
+            required
+          />
+        </div>
+
+        {!form.isAllDay ? (
+          <>
+            <div className="schedule-form-field">
+              <label htmlFor="schedule-event-start-time">시작 시간</label>
+              <input
+                id="schedule-event-start-time"
+                type="time"
+                value={form.startTime}
+                onChange={(event) => setForm((prev) => ({ ...prev, startTime: event.target.value }))}
+                required={!form.isAllDay}
+              />
+            </div>
+
+            <div className="schedule-form-field">
+              <label htmlFor="schedule-event-end-time">종료 시간</label>
+              <input
+                id="schedule-event-end-time"
+                type="time"
+                value={form.endTime}
+                onChange={(event) => setForm((prev) => ({ ...prev, endTime: event.target.value }))}
+                required={!form.isAllDay}
+              />
+            </div>
+          </>
+        ) : null}
+
+        <div className="schedule-form-field">
+          <label htmlFor="schedule-event-location">장소</label>
+          <input
+            id="schedule-event-location"
+            value={form.location}
+            onChange={(event) => setForm((prev) => ({ ...prev, location: event.target.value }))}
+            placeholder="예: 본당 2층"
+          />
+        </div>
+
+        <div className="schedule-form-field schedule-form-span-all">
+          <label htmlFor="schedule-event-description">설명</label>
+          <textarea
+            id="schedule-event-description"
+            rows={4}
+            value={form.description}
+            onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
+            placeholder="행사 안내 내용을 입력하세요"
+          />
+        </div>
+
+        <div className="schedule-form-actions">
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={onCancel}
+          >
+            취소
+          </button>
+          <button type="submit" className="btn-primary" disabled={isSubmitting}>
+            {isSubmitting ? '저장 중...' : editingEventId ? '수정 저장' : '행사 등록'}
+          </button>
+        </div>
+      </form>
+    </section>
+  )
+}
+
 function Schedule() {
   const navigate = useNavigate()
   const today = useMemo(() => getTodayKstParts(), [])
@@ -313,11 +509,21 @@ function Schedule() {
   const [form, setForm] = useState(() => createDefaultEventForm(getTodayKstDateKey()))
   const [feedback, setFeedback] = useState('')
 
-  const { supabaseStatus, profile, isAdmin, scheduleMonth, isLoading, error, createEvent, updateEvent, deleteEvent, isSubmitting } =
-    useSchedulePage({
-      year: monthState.year,
-      month: monthState.month,
-    })
+  const {
+    supabaseStatus,
+    profile,
+    isAdmin,
+    scheduleMonth,
+    isLoading,
+    error,
+    createEvent,
+    updateEvent,
+    deleteEvent,
+    isSubmitting,
+  } = useSchedulePage({
+    year: monthState.year,
+    month: monthState.month,
+  })
 
   const monthGrid = useMemo(() => buildMonthGrid(monthState.year, monthState.month), [monthState.year, monthState.month])
 
@@ -357,14 +563,14 @@ function Schedule() {
 
   const selectedDateItems = dayItemsMap.get(selectedDateKey) || []
 
-  const openCreateForm = () => {
+  const handleOpenCreateForm = useCallback(() => {
     setFeedback('')
     setEditingEventId(null)
     setForm(createDefaultEventForm(selectedDateKey))
     setIsFormOpen(true)
-  }
+  }, [selectedDateKey])
 
-  const openEditForm = (item) => {
+  const handleOpenEditForm = useCallback((item) => {
     const startParts = toKstDateTimeParts(item.startsAt)
     const endParts = toKstDateTimeParts(item.endsAt)
 
@@ -381,9 +587,9 @@ function Schedule() {
       endTime: endParts.time || '11:00',
     })
     setIsFormOpen(true)
-  }
+  }, [selectedDateKey])
 
-  const handleSubmitEvent = async (event) => {
+  const handleSubmitEvent = useCallback(async (event) => {
     event.preventDefault()
     setFeedback('')
 
@@ -404,9 +610,9 @@ function Schedule() {
     } catch (submitError) {
       setFeedback(submitError.message)
     }
-  }
+  }, [form, editingEventId, createEvent, updateEvent, selectedDateKey])
 
-  const handleDeleteEvent = async (eventId) => {
+  const handleDeleteEvent = useCallback(async (eventId) => {
     if (!window.confirm('이 행사를 삭제하시겠어요?')) {
       return
     }
@@ -424,9 +630,15 @@ function Schedule() {
     } catch (deleteError) {
       setFeedback(deleteError.message)
     }
-  }
+  }, [deleteEvent, editingEventId])
 
-  const handleMoveMonth = (delta) => {
+  const handleCancelForm = useCallback(() => {
+    setIsFormOpen(false)
+    setEditingEventId(null)
+    setFeedback('')
+  }, [])
+
+  const handleMoveMonth = useCallback((delta) => {
     setFeedback('')
     const cursor = new Date(Date.UTC(monthState.year, monthState.month - 1 + delta, 1))
     const nextMonth = {
@@ -438,18 +650,18 @@ function Schedule() {
     setMonthState(nextMonth)
     setSelectedDateKey(nextDateKey)
     setForm((prev) => ({ ...prev, startDate: nextDateKey, endDate: nextDateKey }))
-  }
+  }, [monthState.year, monthState.month])
 
-  const handleMoveToday = () => {
+  const handleMoveToday = useCallback(() => {
     const now = getTodayKstParts()
     const todayDateKey = toDateKeyFromParts(now.year, now.month, now.day)
     setMonthState({ year: now.year, month: now.month })
     setSelectedDateKey(todayDateKey)
     setForm((prev) => ({ ...prev, startDate: todayDateKey, endDate: todayDateKey }))
     setFeedback('')
-  }
+  }, [])
 
-  const handleItemClick = (item, dateKey) => {
+  const handleItemClick = useCallback((item, dateKey) => {
     setFeedback('')
     setSelectedDateKey(dateKey)
 
@@ -461,7 +673,12 @@ function Schedule() {
     if (item.sourceType === 'birthday') {
       navigate('/birthdays')
     }
-  }
+  }, [navigate])
+
+  const handleSelectDate = useCallback((dateKey) => {
+    setSelectedDateKey(dateKey)
+    setFeedback('')
+  }, [])
 
   return (
     <div className="animate-fade-in page-stack schedule-page">
@@ -478,7 +695,7 @@ function Schedule() {
       {!supabaseStatus.configured ? <InfoBanner message={supabaseStatus.message} /> : null}
 
       <ErrorBanner message={error?.message || ''} />
-      <ErrorBanner message={feedback} />
+      {feedback && !isFormOpen ? <ErrorBanner message={feedback} /> : null}
 
       <section className="glass schedule-calendar-card">
         <div className="schedule-calendar-toolbar">
@@ -522,55 +739,19 @@ function Schedule() {
         </div>
 
         {isLoading ? (
-          <p style={{ color: 'var(--text-secondary)' }}>일정 데이터를 불러오는 중입니다...</p>
+          <p style={{ color: 'var(--text-secondary)', padding: '1rem' }}>일정 데이터를 불러오는 중입니다...</p>
         ) : (
           <div className="schedule-calendar-grid-body">
-            {monthGrid.map((day) => {
-              const items = dayItemsMap.get(day.dateKey) || []
-              const visibleItems = items.slice(0, MAX_CHIPS_PER_DAY)
-              const hiddenCount = Math.max(items.length - visibleItems.length, 0)
-
-              return (
-                <div
-                  key={day.dateKey}
-                  role="button"
-                  tabIndex={0}
-                  className={`schedule-day-cell ${
-                    day.inCurrentMonth ? '' : 'outside'
-                  } ${day.dateKey === selectedDateKey ? 'selected' : ''}`}
-                  onClick={() => setSelectedDateKey(day.dateKey)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault()
-                      setSelectedDateKey(day.dateKey)
-                    }
-                  }}
-                >
-                  <div className="schedule-day-header">
-                    <span>{day.day}</span>
-                  </div>
-
-                  <div className="schedule-day-items">
-                    {visibleItems.map((item) => (
-                      <button
-                        key={`${day.dateKey}-${item.id}`}
-                        type="button"
-                        className={`schedule-chip ${item.sourceType}`}
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          handleItemClick(item, day.dateKey)
-                        }}
-                      >
-                        <span className="schedule-chip-type">{getTypeLabel(item.sourceType)}</span>
-                        <span className="schedule-chip-title">{item.title}</span>
-                      </button>
-                    ))}
-
-                    {hiddenCount > 0 ? <p className="schedule-chip-more">+{hiddenCount}개 더</p> : null}
-                  </div>
-                </div>
-              )
-            })}
+            {monthGrid.map((day) => (
+              <CalendarDayCell
+                key={day.dateKey}
+                day={day}
+                selectedDateKey={selectedDateKey}
+                items={dayItemsMap.get(day.dateKey) || []}
+                onSelectDate={handleSelectDate}
+                onItemClick={handleItemClick}
+              />
+            ))}
           </div>
         )}
       </section>
@@ -582,7 +763,7 @@ function Schedule() {
             <button
               type="button"
               className="btn-primary"
-              onClick={openCreateForm}
+              onClick={handleOpenCreateForm}
               disabled={!supabaseStatus.configured || isSubmitting}
             >
               행사 추가
@@ -595,154 +776,30 @@ function Schedule() {
         ) : (
           <div className="schedule-detail-list">
             {selectedDateItems.map((item) => (
-              <article key={`${selectedDateKey}-${item.id}`} className="schedule-detail-item">
-                <div className="schedule-detail-title-row">
-                  <span className={`schedule-type-badge ${item.sourceType}`}>{getTypeLabel(item.sourceType)}</span>
-                  <p style={{ fontWeight: 700 }}>{item.title}</p>
-                </div>
-
-                <p className="schedule-detail-meta">{formatTimeRange(item)}</p>
-                {item.location ? <p className="schedule-detail-meta">장소: {item.location}</p> : null}
-                {item.description ? <p style={{ whiteSpace: 'pre-wrap' }}>{item.description}</p> : null}
-
-                {isAdmin && item.sourceType === 'event' ? (
-                  <div className="schedule-detail-actions">
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      onClick={() => openEditForm(item)}
-                      disabled={isSubmitting}
-                    >
-                      <Pencil size={15} /> 수정
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-secondary admin-danger-button"
-                      onClick={() => handleDeleteEvent(item.sourceId)}
-                      disabled={isSubmitting}
-                    >
-                      <Trash2 size={15} /> 삭제
-                    </button>
-                  </div>
-                ) : null}
-              </article>
+              <ScheduleDetailItem
+                key={`${selectedDateKey}-${item.id}`}
+                item={item}
+                selectedDateKey={selectedDateKey}
+                isAdmin={isAdmin}
+                isSubmitting={isSubmitting}
+                onOpenEditForm={handleOpenEditForm}
+                onDeleteEvent={handleDeleteEvent}
+              />
             ))}
           </div>
         )}
       </section>
 
       {isAdmin && isFormOpen ? (
-        <section className="glass schedule-form-card">
-          <h2 style={{ fontSize: '1.05rem', marginBottom: '0.7rem' }}>{editingEventId ? '행사 수정' : '행사 추가'}</h2>
-
-          <form className="schedule-event-form" onSubmit={handleSubmitEvent}>
-            <div className="schedule-form-field">
-              <label htmlFor="schedule-event-title">제목</label>
-              <input
-                id="schedule-event-title"
-                value={form.title}
-                onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
-                placeholder="예: 여름 수련회"
-                required
-              />
-            </div>
-
-            <div className="schedule-form-field schedule-switch-field">
-              <label htmlFor="schedule-event-all-day">종일 일정</label>
-              <input
-                id="schedule-event-all-day"
-                type="checkbox"
-                checked={form.isAllDay}
-                onChange={(event) => setForm((prev) => ({ ...prev, isAllDay: event.target.checked }))}
-              />
-            </div>
-
-            <div className="schedule-form-field">
-              <label htmlFor="schedule-event-start-date">시작일</label>
-              <input
-                id="schedule-event-start-date"
-                type="date"
-                value={form.startDate}
-                onChange={(event) => setForm((prev) => ({ ...prev, startDate: event.target.value }))}
-                required
-              />
-            </div>
-
-            <div className="schedule-form-field">
-              <label htmlFor="schedule-event-end-date">종료일</label>
-              <input
-                id="schedule-event-end-date"
-                type="date"
-                value={form.endDate}
-                onChange={(event) => setForm((prev) => ({ ...prev, endDate: event.target.value }))}
-                required
-              />
-            </div>
-
-            {!form.isAllDay ? (
-              <>
-                <div className="schedule-form-field">
-                  <label htmlFor="schedule-event-start-time">시작 시간</label>
-                  <input
-                    id="schedule-event-start-time"
-                    type="time"
-                    value={form.startTime}
-                    onChange={(event) => setForm((prev) => ({ ...prev, startTime: event.target.value }))}
-                    required={!form.isAllDay}
-                  />
-                </div>
-
-                <div className="schedule-form-field">
-                  <label htmlFor="schedule-event-end-time">종료 시간</label>
-                  <input
-                    id="schedule-event-end-time"
-                    type="time"
-                    value={form.endTime}
-                    onChange={(event) => setForm((prev) => ({ ...prev, endTime: event.target.value }))}
-                    required={!form.isAllDay}
-                  />
-                </div>
-              </>
-            ) : null}
-
-            <div className="schedule-form-field">
-              <label htmlFor="schedule-event-location">장소</label>
-              <input
-                id="schedule-event-location"
-                value={form.location}
-                onChange={(event) => setForm((prev) => ({ ...prev, location: event.target.value }))}
-                placeholder="예: 본당 2층"
-              />
-            </div>
-
-            <div className="schedule-form-field schedule-form-span-all">
-              <label htmlFor="schedule-event-description">설명</label>
-              <textarea
-                id="schedule-event-description"
-                rows={4}
-                value={form.description}
-                onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-                placeholder="행사 안내 내용을 입력하세요"
-              />
-            </div>
-
-            <div className="schedule-form-actions">
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => {
-                  setIsFormOpen(false)
-                  setEditingEventId(null)
-                }}
-              >
-                취소
-              </button>
-              <button type="submit" className="btn-primary" disabled={isSubmitting}>
-                {isSubmitting ? '저장 중...' : editingEventId ? '수정 저장' : '행사 등록'}
-              </button>
-            </div>
-          </form>
-        </section>
+        <ScheduleEventForm
+          form={form}
+          setForm={setForm}
+          editingEventId={editingEventId}
+          isSubmitting={isSubmitting}
+          feedback={feedback}
+          onSubmit={handleSubmitEvent}
+          onCancel={handleCancelForm}
+        />
       ) : null}
     </div>
   )

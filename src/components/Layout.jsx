@@ -1,22 +1,35 @@
 import { useState } from 'react'
 import { Outlet, Link, useLocation } from 'react-router-dom'
-import { Home, Users, Heart, BookOpen, Music, LogOut } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { Home, Users, Heart, BookOpen, Music, LogOut, ShieldCheck } from 'lucide-react'
 import ErrorBanner from './common/ErrorBanner'
+import { getCurrentProfile } from '../features/profile/api'
 import { useAuth } from '../hooks/useAuth'
+
+const PROFILE_QUERY_KEY = ['profile']
+const BASE_NAV_ITEMS = [
+  { name: '홈', path: '/', icon: Home },
+  { name: '벙개', path: '/meetups', icon: Users },
+  { name: '은혜', path: '/grace', icon: Heart },
+  { name: '기도', path: '/prayer', icon: BookOpen },
+  { name: '찬양', path: '/praise', icon: Music },
+]
 
 function Layout() {
   const location = useLocation()
   const { signOut } = useAuth()
   const [logoutError, setLogoutError] = useState('')
   const [isSigningOut, setIsSigningOut] = useState(false)
+  const profileQuery = useQuery({
+    queryKey: PROFILE_QUERY_KEY,
+    queryFn: getCurrentProfile,
+    staleTime: 5 * 60 * 1000,
+  })
 
-  const navItems = [
-    { name: '홈', path: '/', icon: Home },
-    { name: '벙개', path: '/meetups', icon: Users },
-    { name: '은혜', path: '/grace', icon: Heart },
-    { name: '기도', path: '/prayer', icon: BookOpen },
-    { name: '찬양', path: '/praise', icon: Music },
-  ]
+  const navItems =
+    profileQuery.data?.role === 'admin'
+      ? [...BASE_NAV_ITEMS, { name: '관리', path: '/admin', icon: ShieldCheck }]
+      : BASE_NAV_ITEMS
 
   const handleSignOut = async () => {
     setLogoutError('')

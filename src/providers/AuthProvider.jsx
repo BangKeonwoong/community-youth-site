@@ -34,8 +34,16 @@ function mapAuthErrorMessage(rawMessage, hasInviteCode) {
     return '이미 사용된 초대코드입니다.'
   }
 
+  if (message.includes('INVITE_USAGE_EXCEEDED')) {
+    return '사용 가능 횟수가 모두 소진된 초대코드입니다.'
+  }
+
   if (message.includes('INVITE_EXPIRED')) {
     return '만료된 초대코드입니다.'
+  }
+
+  if (message.includes('INVITE_REVOKED')) {
+    return '회수된 초대코드입니다.'
   }
 
   if (message.includes('INVITE_EMAIL_MISMATCH')) {

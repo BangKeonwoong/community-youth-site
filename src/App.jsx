@@ -1,5 +1,6 @@
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
+import AdminPage from './pages/AdminPage'
 import Dashboard from './pages/Dashboard'
 import GraceSharing from './pages/GraceSharing'
 import Login from './pages/Login'
@@ -8,6 +9,7 @@ import PrayerRequests from './pages/PrayerRequests'
 import PraiseRecommendations from './pages/PraiseRecommendations'
 import SetPassword from './pages/SetPassword'
 import GuestOnly from './routes/GuestOnly'
+import RequireAdmin from './routes/RequireAdmin'
 import RequireAuth from './routes/RequireAuth'
 
 function App() {
@@ -26,6 +28,14 @@ function App() {
             <Route path="grace" element={<GraceSharing />} />
             <Route path="prayer" element={<PrayerRequests />} />
             <Route path="praise" element={<PraiseRecommendations />} />
+            <Route
+              path="admin"
+              element={
+                <RequireAdmin>
+                  <AdminPage />
+                </RequireAdmin>
+              }
+            />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Route>

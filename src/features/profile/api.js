@@ -8,6 +8,8 @@ import {
 const PROFILE_TABLE = import.meta.env.VITE_SUPABASE_PROFILE_TABLE || 'profiles'
 const FALLBACK_PROFILE_ID = import.meta.env.VITE_DEFAULT_USER_ID || 'local-user'
 const FALLBACK_PROFILE_NAME = import.meta.env.VITE_DEFAULT_USER_NAME || '게스트'
+const VALID_PROFILE_GENDERS = new Set(['male', 'female'])
+const KR_MOBILE_PATTERN = /^01[016789][0-9]{7,8}$/
 
 export const SUPABASE_NOT_CONFIGURED_CODE = 'SUPABASE_NOT_CONFIGURED'
 function normalizeRoleFromRow(row) {
@@ -26,18 +28,95 @@ function createFallbackProfile(source = 'fallback') {
   return {
     id: FALLBACK_PROFILE_ID,
     displayName: FALLBACK_PROFILE_NAME,
+    birthDate: '',
+    phoneNumber: '',
+    gender: '',
     role: 'member',
     source,
   }
 }
 
+function toTrimmedOrEmpty(value) {
+  return String(value ?? '').trim()
+}
+
+function toIsoDateOrEmpty(value) {
+  const raw = toTrimmedOrEmpty(value)
+  if (!raw) {
+    return ''
+  }
+
+  const date = new Date(raw)
+  if (Number.isNaN(date.getTime())) {
+    return ''
+  }
+
+  return date.toISOString().slice(0, 10)
+}
+
+function normalizeGender(value) {
+  const normalized = toTrimmedOrEmpty(value).toLowerCase()
+  return VALID_PROFILE_GENDERS.has(normalized) ? normalized : ''
+}
+
+function normalizePhoneNumber(value) {
+  return String(value ?? '').replace(/\D/g, '')
+}
+
 function normalizeProfile(row, source = 'database') {
   return {
     id: row.id,
-    displayName: row.display_name || FALLBACK_PROFILE_NAME,
+    displayName: toTrimmedOrEmpty(row.display_name || FALLBACK_PROFILE_NAME),
+    birthDate: toIsoDateOrEmpty(row.birth_date || row.birthDate),
+    phoneNumber: toTrimmedOrEmpty(row.phone_number || row.phoneNumber),
+    gender: normalizeGender(row.gender),
     role: normalizeRoleFromRow(row),
     source,
   }
+}
+
+function assertDisplayName(displayName) {
+  const value = toTrimmedOrEmpty(displayName)
+  if (!value) {
+    throw new Error('이름을 입력해 주세요.')
+  }
+
+  if (value.length < 2 || value.length > 40) {
+    throw new Error('이름은 2자 이상 40자 이하로 입력해 주세요.')
+  }
+
+  return value
+}
+
+function assertBirthDate(birthDate) {
+  const value = toIsoDateOrEmpty(birthDate)
+  if (!value) {
+    throw new Error('생년월일을 입력해 주세요.')
+  }
+
+  return value
+}
+
+function assertPhoneNumber(phoneNumber) {
+  const value = normalizePhoneNumber(phoneNumber)
+  if (!value) {
+    throw new Error('연락처를 입력해 주세요.')
+  }
+
+  if (!KR_MOBILE_PATTERN.test(value)) {
+    throw new Error('휴대폰 번호 형식이 올바르지 않습니다.')
+  }
+
+  return value
+}
+
+function assertGender(gender) {
+  const value = normalizeGender(gender)
+  if (!value) {
+    throw new Error('성별을 선택해 주세요.')
+  }
+
+  return value
 }
 
 function toError(error, fallbackMessage) {
@@ -105,17 +184,43 @@ function mapOnboardingErrorMessage(rawMessage) {
     return '로그인 세션을 확인하지 못했습니다. 다시 로그인해 주세요.'
   }
 
+  if (message.includes('PROFILE_INCOMPLETE')) {
+    return '필수 프로필 정보가 누락되었습니다. 이름, 생년월일, 휴대폰 번호, 성별을 확인해 주세요.'
+  }
+
+  if (message.includes('INVALID_DISPLAY_NAME')) {
+    return '표시 이름은 2자 이상 40자 이하로 입력해 주세요.'
+  }
+
+  if (message.includes('INVALID_BIRTH_DATE')) {
+    return '생년월일이 올바르지 않습니다. 오늘 이전(또는 오늘) 날짜를 입력해 주세요.'
+  }
+
+  if (message.includes('INVALID_PHONE_NUMBER')) {
+    return '휴대폰 번호 형식이 올바르지 않습니다.'
+  }
+
+  if (message.includes('INVALID_GENDER')) {
+    return '성별 값이 올바르지 않습니다.'
+  }
+
   return ''
 }
 
 async function completeOnboardingForUser(user) {
   const inviteCode = String(user?.user_metadata?.invite_code || '').trim()
   const displayName = resolveDisplayName(user)
+  const birthDate = toIsoDateOrEmpty(user?.user_metadata?.birth_date)
+  const phoneNumber = normalizePhoneNumber(user?.user_metadata?.phone_number)
+  const gender = normalizeGender(user?.user_metadata?.gender)
 
   if (inviteCode) {
     const { error } = await supabase.rpc('redeem_invite_code', {
       p_code: inviteCode,
       p_display_name: displayName,
+      p_birth_date: birthDate || null,
+      p_phone_number: phoneNumber || null,
+      p_gender: gender || null,
     })
 
     if (error) {
@@ -131,6 +236,9 @@ async function completeOnboardingForUser(user) {
 
   const { error } = await supabase.rpc('bootstrap_owner_profile', {
     p_display_name: displayName,
+    p_birth_date: birthDate || null,
+    p_phone_number: phoneNumber || null,
+    p_gender: gender || null,
   })
 
   if (error) {
@@ -169,7 +277,7 @@ export async function getCurrentUserId() {
 async function getProfileByUserId(userId) {
   const { data, error } = await supabase
     .from(PROFILE_TABLE)
-    .select('id, display_name, is_admin')
+    .select('id, display_name, birth_date, phone_number, gender, is_admin')
     .eq('id', userId)
     .maybeSingle()
 
@@ -206,6 +314,50 @@ export async function getCurrentProfile() {
   }
 
   return normalizeProfile(profile)
+}
+
+export function isProfileComplete(profile) {
+  if (!profile) {
+    return false
+  }
+
+  if (profile.source === 'config-missing') {
+    return true
+  }
+
+  const displayName = toTrimmedOrEmpty(profile.displayName)
+  const birthDate = toIsoDateOrEmpty(profile.birthDate)
+  const phoneNumber = normalizePhoneNumber(profile.phoneNumber)
+  const gender = normalizeGender(profile.gender)
+
+  return Boolean(displayName && birthDate && phoneNumber && KR_MOBILE_PATTERN.test(phoneNumber) && gender)
+}
+
+export async function updateCurrentProfileDetails(payload) {
+  requireSupabaseConfigured()
+
+  const displayName = assertDisplayName(payload?.displayName)
+  const birthDate = assertBirthDate(payload?.birthDate)
+  const phoneNumber = assertPhoneNumber(payload?.phoneNumber)
+  const gender = assertGender(payload?.gender)
+
+  const { data, error } = await supabase.rpc('upsert_profile_details', {
+    p_display_name: displayName,
+    p_birth_date: birthDate,
+    p_phone_number: phoneNumber,
+    p_gender: gender,
+  })
+
+  if (error) {
+    const mapped = mapOnboardingErrorMessage(error.message)
+    if (mapped) {
+      throw new Error(mapped)
+    }
+
+    throw toError(error, '프로필 저장에 실패했습니다.')
+  }
+
+  return normalizeProfile(data)
 }
 
 export function canManagePost(profile, authorId) {

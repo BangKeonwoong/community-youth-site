@@ -3,12 +3,21 @@ import { Link, useNavigate } from 'react-router-dom'
 import ErrorBanner from '../components/common/ErrorBanner'
 import { useAuth } from '../hooks/useAuth'
 
+const KR_MOBILE_PATTERN = /^01[016789][0-9]{7,8}$/
+
+function normalizePhoneNumber(value) {
+  return String(value ?? '').replace(/\D/g, '')
+}
+
 function SetPassword() {
   const navigate = useNavigate()
   const { signUpWithInvite } = useAuth()
 
   const [inviteCode, setInviteCode] = useState('')
   const [displayName, setDisplayName] = useState('')
+  const [birthDate, setBirthDate] = useState('')
+  const [phoneNumber, setPhoneNumber] = useState('')
+  const [gender, setGender] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -20,11 +29,34 @@ function SetPassword() {
     setError('')
 
     const normalizedDisplayName = displayName.trim()
+    const normalizedBirthDate = birthDate.trim()
+    const normalizedPhoneNumber = normalizePhoneNumber(phoneNumber)
+    const normalizedGender = gender.trim().toLowerCase()
     const normalizedEmail = email.trim()
     const normalizedInviteCode = inviteCode.trim()
 
     if (!normalizedDisplayName) {
       setError('표시 이름을 입력해 주세요.')
+      return
+    }
+
+    if (!normalizedBirthDate) {
+      setError('생년월일을 입력해 주세요.')
+      return
+    }
+
+    if (!normalizedPhoneNumber) {
+      setError('휴대폰 번호를 입력해 주세요.')
+      return
+    }
+
+    if (!KR_MOBILE_PATTERN.test(normalizedPhoneNumber)) {
+      setError('휴대폰 번호 형식이 올바르지 않습니다. (예: 01012345678)')
+      return
+    }
+
+    if (!(normalizedGender === 'male' || normalizedGender === 'female')) {
+      setError('성별을 선택해 주세요.')
       return
     }
 
@@ -62,6 +94,9 @@ function SetPassword() {
     const { data, error: signUpError } = await signUpWithInvite({
       inviteCode: normalizedInviteCode,
       displayName: normalizedDisplayName,
+      birthDate: normalizedBirthDate,
+      phoneNumber: normalizedPhoneNumber,
+      gender: normalizedGender,
       email: normalizedEmail,
       password,
     })
@@ -134,6 +169,69 @@ function SetPassword() {
                 color: 'var(--text-primary)',
               }}
             />
+          </div>
+          <div>
+            <label htmlFor="invite-birth-date" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
+              생년월일
+            </label>
+            <input
+              id="invite-birth-date"
+              type="date"
+              value={birthDate}
+              onChange={(event) => setBirthDate(event.target.value)}
+              max={new Date().toISOString().slice(0, 10)}
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-color)',
+                background: 'var(--bg-secondary)',
+                color: 'var(--text-primary)',
+              }}
+            />
+          </div>
+          <div>
+            <label htmlFor="invite-phone-number" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
+              휴대폰 번호
+            </label>
+            <input
+              id="invite-phone-number"
+              type="tel"
+              value={phoneNumber}
+              onChange={(event) => setPhoneNumber(event.target.value)}
+              placeholder="010-1234-5678"
+              autoComplete="tel"
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-color)',
+                background: 'var(--bg-secondary)',
+                color: 'var(--text-primary)',
+              }}
+            />
+          </div>
+          <div>
+            <label htmlFor="invite-gender" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
+              성별
+            </label>
+            <select
+              id="invite-gender"
+              value={gender}
+              onChange={(event) => setGender(event.target.value)}
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-color)',
+                background: 'var(--bg-secondary)',
+                color: 'var(--text-primary)',
+              }}
+            >
+              <option value="">선택해 주세요</option>
+              <option value="male">남성</option>
+              <option value="female">여성</option>
+            </select>
           </div>
           <div>
             <label htmlFor="invite-email" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>

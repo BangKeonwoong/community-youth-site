@@ -1,7 +1,17 @@
 import { useState } from 'react'
 import { Outlet, Link, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Home, Users, Heart, BookOpen, Music, LogOut, ShieldCheck } from 'lucide-react'
+import {
+  Home,
+  Users,
+  Heart,
+  BookOpen,
+  Music,
+  Cake,
+  MessageSquare,
+  LogOut,
+  ShieldCheck,
+} from 'lucide-react'
 import ErrorBanner from './common/ErrorBanner'
 import { getCurrentProfile } from '../features/profile/api'
 import { useAuth } from '../hooks/useAuth'
@@ -9,6 +19,8 @@ import { useAuth } from '../hooks/useAuth'
 const PROFILE_QUERY_KEY = ['profile']
 const BASE_NAV_ITEMS = [
   { name: '홈', path: '/', icon: Home },
+  { name: '생일', path: '/birthdays', icon: Cake },
+  { name: '메시지', path: '/messages', icon: MessageSquare },
   { name: '벙개', path: '/meetups', icon: Users },
   { name: '은혜', path: '/grace', icon: Heart },
   { name: '기도', path: '/prayer', icon: BookOpen },

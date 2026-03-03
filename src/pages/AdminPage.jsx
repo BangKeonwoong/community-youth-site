@@ -10,13 +10,21 @@ const TABS = [
   { id: 'moderation', label: '게시물운영', icon: ShieldCheck },
 ]
 
-const INITIAL_INVITE_FORM = {
-  invitedName: '',
-  invitedEmail: '',
-  note: '',
-  maxUses: 1,
-  expiresAt: '',
-  code: '',
+function getDefaultInviteExpiresAt() {
+  const date = new Date()
+  date.setDate(date.getDate() + 30)
+  date.setSeconds(0, 0)
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+}
+
+function createInitialInviteForm() {
+  return {
+    inviteLabel: '',
+    note: '',
+    maxUses: 100,
+    expiresAt: getDefaultInviteExpiresAt(),
+    code: '',
+  }
 }
 
 const TYPE_LABELS = {
@@ -143,6 +151,9 @@ function normalizeRole(profile) {
 
 function normalizeInvite(invite) {
   const id = invite?.id ?? invite?.code ?? invite?.inviteId
+  const inviteLabel = String(
+    invite?.inviteLabel ?? invite?.invitedName ?? invite?.invited_name ?? invite?.label ?? ''
+  ).trim()
   const used = toNonNegativeInteger(
     invite?.used,
     invite?.usedCount,
@@ -166,8 +177,7 @@ function normalizeInvite(invite) {
       invite?.createdBy?.displayName ||
       invite?.created_by_name ||
       '이름 미상',
-    invitedName: invite?.invitedName ?? invite?.invited_name ?? '',
-    invitedEmail: invite?.invitedEmail ?? invite?.invited_email ?? '',
+    inviteLabel,
     isRevoked: Boolean(invite?.isRevoked || invite?.is_revoked || invite?.revokedAt || invite?.revoked_at),
   }
 }
@@ -241,7 +251,7 @@ function FeedbackBanner({ tone = 'neutral', message }) {
 function AdminPage() {
   const adminPage = useAdminPage()
   const [activeTab, setActiveTab] = useState('invite')
-  const [inviteForm, setInviteForm] = useState(INITIAL_INVITE_FORM)
+  const [inviteForm, setInviteForm] = useState(createInitialInviteForm)
   const [feedback, setFeedback] = useState({ tone: 'neutral', message: '' })
   const [isCreatingInvite, setIsCreatingInvite] = useState(false)
   const [pendingInviteId, setPendingInviteId] = useState(null)
@@ -322,17 +332,10 @@ function AdminPage() {
     event.preventDefault()
     setFeedback({ tone: 'neutral', message: '' })
 
-    const invitedName = inviteForm.invitedName.trim()
-    if (!invitedName) {
-      setFeedback({ tone: 'error', message: '초대 대상 이름은 필수입니다.' })
-      return
-    }
-
     const payload = {
-      invitedName,
-      invitedEmail: inviteForm.invitedEmail.trim() || null,
+      inviteLabel: inviteForm.inviteLabel.trim() || null,
       note: inviteForm.note.trim() || null,
-      maxUses: Math.max(1, toPositiveInteger(inviteForm.maxUses, 1)),
+      maxUses: Math.max(1, toPositiveInteger(inviteForm.maxUses, 100)),
       expiresAt: inviteForm.expiresAt ? new Date(inviteForm.expiresAt).toISOString() : null,
       code: inviteForm.code.trim() || null,
     }
@@ -340,7 +343,7 @@ function AdminPage() {
     try {
       setIsCreatingInvite(true)
       await invokeAction(createInviteAction, payload)
-      setInviteForm(INITIAL_INVITE_FORM)
+      setInviteForm(createInitialInviteForm())
       setFeedback({ tone: 'success', message: '초대코드가 생성되었습니다.' })
     } catch (error) {
       setFeedback({ tone: 'error', message: toErrorMessage(error) })
@@ -469,29 +472,16 @@ function AdminPage() {
       {activeTab === 'invite' ? (
         <section className="admin-section">
           <div className="glass admin-card">
-            <h2 style={{ fontSize: '1.1rem', marginBottom: '0.8rem' }}>초대코드 생성</h2>
+            <h2 style={{ fontSize: '1.1rem', marginBottom: '0.8rem' }}>공개 초대코드 생성</h2>
             <form onSubmit={handleCreateInvite} className="admin-form-grid">
               <div className="admin-form-field">
-                <label htmlFor="admin-invited-name">초대 대상 이름 *</label>
+                <label htmlFor="admin-invite-label">코드명 (선택)</label>
                 <input
-                  id="admin-invited-name"
-                  value={inviteForm.invitedName}
-                  onChange={(event) => handleInviteInputChange('invitedName', event.target.value)}
+                  id="admin-invite-label"
+                  value={inviteForm.inviteLabel}
+                  onChange={(event) => handleInviteInputChange('inviteLabel', event.target.value)}
                   className="admin-input"
-                  placeholder="예: 홍길동"
-                  required
-                />
-              </div>
-
-              <div className="admin-form-field">
-                <label htmlFor="admin-invited-email">초대 대상 이메일</label>
-                <input
-                  id="admin-invited-email"
-                  type="email"
-                  value={inviteForm.invitedEmail}
-                  onChange={(event) => handleInviteInputChange('invitedEmail', event.target.value)}
-                  className="admin-input"
-                  placeholder="example@email.com"
+                  placeholder="예: 2026 상반기 공개 초대"
                 />
               </div>
 
@@ -571,10 +561,11 @@ function AdminPage() {
                       </p>
                       <p style={{ fontSize: '0.82rem', color: 'var(--text-tertiary)' }}>
                         생성자: {invite.creator}
-                        {invite.invitedName ? ` · 대상: ${invite.invitedName}` : ''}
                       </p>
-                      {invite.invitedEmail ? (
-                        <p style={{ fontSize: '0.82rem', color: 'var(--text-tertiary)' }}>{invite.invitedEmail}</p>
+                      {invite.inviteLabel ? (
+                        <p style={{ fontSize: '0.82rem', color: 'var(--text-tertiary)' }}>
+                          코드명: {invite.inviteLabel}
+                        </p>
                       ) : null}
                     </div>
 

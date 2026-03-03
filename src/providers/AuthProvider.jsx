@@ -11,6 +11,10 @@ function authUnavailableResult() {
   return { data: null, error: createSupabaseNotConfiguredError() }
 }
 
+function normalizePhoneNumber(value) {
+  return String(value ?? '').replace(/\D/g, '')
+}
+
 function mapAuthErrorMessage(rawMessage, hasInviteCode) {
   const message = String(rawMessage || '')
 
@@ -52,6 +56,30 @@ function mapAuthErrorMessage(rawMessage, hasInviteCode) {
 
   if (message.includes('USER_ALREADY_REDEEMED')) {
     return '이 계정은 이미 초대코드가 적용되었습니다.'
+  }
+
+  if (message.includes('PROFILE_INCOMPLETE')) {
+    return '필수 프로필 정보가 누락되었습니다. 이름, 생년월일, 휴대폰 번호, 성별을 확인해 주세요.'
+  }
+
+  if (message.includes('INVALID_DISPLAY_NAME')) {
+    return '표시 이름은 2자 이상 40자 이하로 입력해 주세요.'
+  }
+
+  if (message.includes('INVALID_BIRTH_DATE')) {
+    return '생년월일이 올바르지 않습니다. 오늘 이전(또는 오늘) 날짜를 입력해 주세요.'
+  }
+
+  if (message.includes('INVALID_PHONE_NUMBER')) {
+    return '휴대폰 번호 형식이 올바르지 않습니다.'
+  }
+
+  if (message.includes('INVALID_GENDER')) {
+    return '성별 값이 올바르지 않습니다.'
+  }
+
+  if (message.includes('INVALID_MESSAGE_CONTENT') || message.includes('BIRTHDAY_WINDOW_ONLY')) {
+    return '요청을 처리할 수 없습니다. 잠시 후 다시 시도해 주세요.'
   }
 
   if (!hasInviteCode && message.includes('AUTH_REQUIRED')) {
@@ -129,24 +157,41 @@ export function AuthProvider({ children }) {
     return result
   }
 
-  const signUpWithInvite = async ({ inviteCode, email, password, displayName }) => {
+  const signUpWithInvite = async ({
+    inviteCode,
+    email,
+    password,
+    displayName,
+    birthDate,
+    phoneNumber,
+    gender,
+  }) => {
     if (!supabase) {
       return authUnavailableResult()
     }
+
+    const normalizedInviteCode = inviteCode?.trim() || ''
+    const normalizedDisplayName = displayName?.trim() || ''
+    const normalizedBirthDate = birthDate?.trim() || ''
+    const normalizedPhoneNumber = normalizePhoneNumber(phoneNumber)
+    const normalizedGender = gender?.trim()?.toLowerCase() || ''
 
     const signUpResult = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
-          invite_code: inviteCode,
-          display_name: displayName || '',
+          invite_code: normalizedInviteCode,
+          display_name: normalizedDisplayName,
+          birth_date: normalizedBirthDate,
+          phone_number: normalizedPhoneNumber,
+          gender: normalizedGender,
         },
       },
     })
 
     if (signUpResult.error) {
-      setAuthError(mapAuthErrorMessage(signUpResult.error.message, Boolean(inviteCode?.trim())))
+      setAuthError(mapAuthErrorMessage(signUpResult.error.message, Boolean(normalizedInviteCode)))
       return signUpResult
     }
 
@@ -159,11 +204,18 @@ export function AuthProvider({ children }) {
     }
 
     if (activeSession) {
-      const trimmedCode = inviteCode?.trim()
+      const trimmedCode = normalizedInviteCode
       const rpcName = trimmedCode ? 'redeem_invite_code' : 'bootstrap_owner_profile'
-      const rpcParams = trimmedCode
-        ? { p_code: trimmedCode, p_display_name: displayName || null }
-        : { p_display_name: displayName || null }
+      const rpcParams = {
+        p_display_name: normalizedDisplayName || null,
+        p_birth_date: normalizedBirthDate || null,
+        p_phone_number: normalizedPhoneNumber || null,
+        p_gender: normalizedGender || null,
+      }
+
+      if (trimmedCode) {
+        rpcParams.p_code = trimmedCode
+      }
 
       const { error: redeemError } = await supabase.rpc(rpcName, rpcParams)
 

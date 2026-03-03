@@ -132,6 +132,16 @@ function toIsoOrNull(value) {
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString()
 }
 
+function toDefaultInviteExpiresAt(value) {
+  const iso = toIsoOrNull(value)
+  if (iso) {
+    return iso
+  }
+
+  const defaultExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+  return defaultExpiresAt.toISOString()
+}
+
 function toPositiveInteger(value, defaultValue = 1) {
   const parsed = Number.parseInt(String(value ?? ''), 10)
   if (!Number.isFinite(parsed) || parsed < 1) {
@@ -208,6 +218,7 @@ function normalizeInviteCodeRow(row, profileMap) {
   return {
     id: row.id,
     code: row.code || '',
+    inviteLabel: row.invited_name || '',
     invitedName: row.invited_name || '',
     invitedEmail: row.invited_email || '',
     note: row.note || '',
@@ -289,17 +300,19 @@ export async function createInviteCode(payload, currentProfile) {
   requireSupabaseConfigured()
   assertAdminProfile(currentProfile)
 
-  const invitedName = String(payload?.invitedName ?? payload?.invited_name ?? '').trim()
-  if (!invitedName) {
-    throw new Error('초대 대상 이름을 입력해 주세요.')
-  }
-
-  const maxUses = toPositiveInteger(payload?.maxUses ?? payload?.max_uses, 1)
+  const inviteLabel = String(
+    payload?.inviteLabel ?? payload?.invite_label ?? payload?.invitedName ?? payload?.invited_name ?? '',
+  ).trim() || '공용 초대'
+  const maxUses = toPositiveInteger(payload?.maxUses ?? payload?.max_uses, 100)
+  const invitedEmailInputProvided = Object.prototype.hasOwnProperty.call(payload || {}, 'invitedEmail') ||
+    Object.prototype.hasOwnProperty.call(payload || {}, 'invited_email')
   const insertPayload = {
-    invited_name: invitedName,
-    invited_email: toOptionalTrimmed(payload?.invitedEmail ?? payload?.invited_email),
+    invited_name: inviteLabel,
+    invited_email: invitedEmailInputProvided
+      ? toOptionalTrimmed(payload?.invitedEmail ?? payload?.invited_email)
+      : null,
     note: toOptionalTrimmed(payload?.note),
-    expires_at: toIsoOrNull(payload?.expiresAt ?? payload?.expires_at),
+    expires_at: toDefaultInviteExpiresAt(payload?.expiresAt ?? payload?.expires_at),
     max_uses: maxUses,
     created_by: currentProfile.id,
   }

@@ -341,6 +341,185 @@ button {
   background-color: #fee2e2;
 }
 
+/* Shared page blocks */
+.page-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Profile complete */
+.profile-complete-page {
+  display: flex;
+  justify-content: center;
+}
+
+.profile-complete-card {
+  width: 100%;
+  max-width: 760px;
+  border-radius: var(--radius-lg);
+  padding: 1.15rem;
+}
+
+.profile-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.profile-form-field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.profile-form-field label {
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+  font-weight: 500;
+}
+
+.profile-form-field input,
+.profile-form-field select,
+.birthday-message-form textarea {
+  width: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  padding: 0.65rem 0.75rem;
+}
+
+.profile-form-field input:focus,
+.profile-form-field select:focus,
+.birthday-message-form textarea:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.18);
+}
+
+/* Birthdays */
+.birthdays-card {
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+}
+
+.birthday-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.birthday-row {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: left;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 0.8rem;
+  background-color: var(--bg-secondary);
+}
+
+.birthday-row:hover {
+  border-color: var(--accent-primary);
+}
+
+.birthday-row.selected {
+  background-color: var(--accent-light);
+  border-color: var(--accent-primary);
+}
+
+.birthday-days-badge {
+  min-width: 3rem;
+  text-align: center;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 0.2rem 0.52rem;
+  color: var(--accent-primary);
+  background-color: var(--accent-light);
+}
+
+.birthday-days-badge.today {
+  color: #b45309;
+  background-color: #fef3c7;
+}
+
+.birthday-message-form {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.birthday-message-form textarea {
+  resize: vertical;
+}
+
+/* Messages */
+.messages-card {
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+}
+
+.messages-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.messages-tabs {
+  display: inline-flex;
+  gap: 0.35rem;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  padding: 0.2rem;
+  background-color: var(--bg-tertiary);
+}
+
+.messages-tab {
+  border-radius: 999px;
+  color: var(--text-secondary);
+  padding: 0.45rem 0.75rem;
+  font-weight: 600;
+  font-size: 0.86rem;
+}
+
+.messages-tab.active {
+  background-color: var(--accent-light);
+  color: var(--accent-primary);
+}
+
+.messages-admin-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+}
+
+.message-list {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.message-row {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-secondary);
+  padding: 0.85rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.message-row-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
 @media (max-width: 768px) {
   .sidebar {
     display: none;
@@ -378,5 +557,23 @@ button {
   .admin-list-row > button {
     width: 100%;
     justify-content: center;
+  }
+
+  .profile-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .messages-tabs {
+    width: 100%;
+  }
+
+  .messages-tab {
+    flex: 1;
+    text-align: center;
+  }
+
+  .message-row-header {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

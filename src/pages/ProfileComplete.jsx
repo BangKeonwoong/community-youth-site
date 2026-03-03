@@ -44,7 +44,7 @@ function ProfileComplete() {
       displayName: form.displayName ?? profileQuery.data?.displayName ?? '',
       birthDate: form.birthDate ?? toDateInputValue(profileQuery.data?.birthDate),
       phoneNumber: form.phoneNumber ?? profileQuery.data?.phoneNumber ?? '',
-      gender: form.gender ?? profileQuery.data?.gender ?? 'male',
+      gender: form.gender ?? profileQuery.data?.gender ?? '',
     }),
     [form, profileQuery.data],
   )
@@ -132,6 +132,7 @@ function ProfileComplete() {
               onChange={(event) => setForm((prev) => ({ ...prev, gender: event.target.value }))}
               required
             >
+              <option value="">선택</option>
               <option value="male">남성</option>
               <option value="female">여성</option>
             </select>

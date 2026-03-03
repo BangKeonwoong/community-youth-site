@@ -62,6 +62,7 @@ VITE_SUPABASE_ANON_KEY=...
 
 - `supabase/migrations/20260301_initial.sql`
 - `supabase/migrations/20260302_bootstrap_owner_profile.sql`
+- `supabase/migrations/20260306_realtime_chat_and_comments.sql`
 
 적용/운영 가이드는 `supabase/README.md`를 참고하세요.
 

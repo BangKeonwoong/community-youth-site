@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import PostComments from '../components/comments/PostComments'
 import { usePraisePage } from '../features/praise/hooks'
 import { canManagePost } from '../features/profile/api'
 
@@ -345,6 +346,8 @@ function PraiseRecommendationsContent() {
                     ) : null}
                   </div>
                 </div>
+
+                <PostComments postType="praise" postId={recommendation.id} />
               </div>
             </article>
           )

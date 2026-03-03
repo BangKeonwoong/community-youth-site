@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import PostComments from '../components/comments/PostComments'
 import { usePrayerPage } from '../features/prayer/hooks'
 import { canManagePost } from '../features/profile/api'
 
@@ -295,6 +296,8 @@ function PrayerRequestsContent() {
                   ) : null}
                 </div>
               </div>
+
+              <PostComments postType="prayer" postId={request.id} />
             </article>
           )
         })}

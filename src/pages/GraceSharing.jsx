@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import PostComments from '../components/comments/PostComments'
 import { useGracePage } from '../features/grace/hooks'
 import { canManagePost } from '../features/profile/api'
 
@@ -326,6 +327,8 @@ function GraceSharingContent() {
                   ) : null}
                 </div>
               </div>
+
+              <PostComments postType="grace" postId={post.id} />
             </article>
           )
         })}

@@ -22,6 +22,7 @@ const BASE_NAV_ITEMS = [
   { name: '홈', path: '/', icon: Home },
   { name: '일정', path: '/schedule', icon: CalendarDays },
   { name: '생일', path: '/birthdays', icon: Cake },
+  { name: '채팅', path: '/chat', icon: MessageSquare },
   { name: '메시지', path: '/messages', icon: MessageSquare },
   { name: '벙개', path: '/meetups', icon: Users },
   { name: '은혜', path: '/grace', icon: Heart },

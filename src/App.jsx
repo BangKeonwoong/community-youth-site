@@ -2,6 +2,7 @@ import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
 import AdminPage from './pages/AdminPage'
 import Birthdays from './pages/Birthdays'
+import ChatRooms from './pages/ChatRooms'
 import Dashboard from './pages/Dashboard'
 import GraceSharing from './pages/GraceSharing'
 import Login from './pages/Login'
@@ -37,6 +38,7 @@ function App() {
               <Route path="prayer" element={<PrayerRequests />} />
               <Route path="praise" element={<PraiseRecommendations />} />
               <Route path="birthdays" element={<Birthdays />} />
+              <Route path="chat" element={<ChatRooms />} />
               <Route path="messages" element={<Messages />} />
               <Route
                 path="admin"

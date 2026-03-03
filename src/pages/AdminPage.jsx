@@ -33,6 +33,15 @@ const TYPE_LABELS = {
   grace: '은혜',
   prayer: '기도',
   praise: '찬양',
+  comment: '댓글',
+  chat_message: '채팅',
+}
+
+const MODERATION_TYPE_ALIASES = {
+  comments: 'comment',
+  post_comment: 'comment',
+  post_comments: 'comment',
+  chat_messages: 'chat_message',
 }
 
 function asArray(value) {
@@ -193,16 +202,34 @@ function normalizeProfile(profile) {
 
 function normalizeModerationItem(item) {
   const rawType = String(item?.type || item?.postType || item?.category || item?.source || '').toLowerCase()
-  const type = TYPE_LABELS[rawType] ? rawType : 'etc'
+  const normalizedType = MODERATION_TYPE_ALIASES[rawType] || rawType
+  const type = TYPE_LABELS[normalizedType] ? normalizedType : 'etc'
 
   return {
     id: item?.id ?? item?.postId ?? item?.contentId,
     type,
     typeLabel: TYPE_LABELS[type] || '기타',
     title: item?.title || item?.subject || item?.name || '(제목 없음)',
+    content: item?.content || item?.body || item?.description || '',
     author: item?.authorName || item?.author || item?.createdByName || item?.author_name || '이름 미상',
     createdAt: item?.createdAt ?? item?.created_at ?? null,
   }
+}
+
+function isSoftDeleteModerationType(type) {
+  return type === 'comment' || type === 'chat_message'
+}
+
+function getModerationTargetLabel(type) {
+  if (type === 'comment') {
+    return '댓글'
+  }
+
+  if (type === 'chat_message') {
+    return '채팅 메시지'
+  }
+
+  return '게시물'
 }
 
 function InfoBanner({ message }) {
@@ -413,20 +440,30 @@ function AdminPage() {
     }
   }
 
-  const handleHardDelete = async (item) => {
-    if (!window.confirm('정말로 이 게시물을 영구 삭제하시겠어요? 이 작업은 되돌릴 수 없습니다.')) {
+  const handleModerationDelete = async (item) => {
+    const isSoftDelete = isSoftDeleteModerationType(item.type)
+    const targetLabel = getModerationTargetLabel(item.type)
+    const confirmMessage = isSoftDelete
+      ? `이 ${targetLabel}을 숨김 처리하시겠어요? 내용이 비워지고 삭제 상태로 표시됩니다.`
+      : '정말로 이 게시물을 영구 삭제하시겠어요? 이 작업은 되돌릴 수 없습니다.'
+
+    if (!window.confirm(confirmMessage)) {
       return
     }
 
     setFeedback({ tone: 'neutral', message: '' })
     try {
-      setPendingModerationId(item.id)
+      const pendingKey = `${item.type}-${item.id}`
+      setPendingModerationId(pendingKey)
       await invokeAction(
         hardDeleteAction,
         { id: item.id, type: item.type },
         [{ postId: item.id, id: item.id, type: item.type }, item.id, item]
       )
-      setFeedback({ tone: 'success', message: '게시물을 영구 삭제했습니다.' })
+      setFeedback({
+        tone: 'success',
+        message: isSoftDelete ? `${targetLabel}을 숨김 처리했습니다.` : '게시물을 영구 삭제했습니다.',
+      })
     } catch (error) {
       setFeedback({ tone: 'error', message: toErrorMessage(error) })
     } finally {
@@ -650,36 +687,49 @@ function AdminPage() {
             ) : moderationItems.length === 0 ? (
               <EmptyState
                 title="운영 대상 게시물이 없습니다."
-                description="벙개/은혜/기도/찬양 게시물이 여기에 통합 표시됩니다."
+                description="벙개/은혜/기도/찬양/댓글/채팅 메시지가 여기에 통합 표시됩니다."
               />
             ) : (
               <div className="admin-list">
-                {moderationItems.map((item) => (
-                  <div key={`${item.type}-${item.id}`} className="admin-list-row">
-                    <div style={{ display: 'grid', gap: '0.25rem' }}>
-                      <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                        <span className="admin-type-badge">{item.typeLabel}</span>
-                        <p style={{ fontWeight: 600 }}>{item.title}</p>
-                      </div>
-                      <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                        작성자: {item.author}
-                      </p>
-                      <p style={{ fontSize: '0.82rem', color: 'var(--text-tertiary)' }}>
-                        작성일: {formatDateTime(item.createdAt, '날짜 미상')}
-                      </p>
-                    </div>
+                {moderationItems.map((item) => {
+                  const rowKey = `${item.type}-${item.id}`
+                  const isPending = pendingModerationId === rowKey
+                  const isSoftDelete = isSoftDeleteModerationType(item.type)
 
-                    <button
-                      type="button"
-                      className="btn-secondary admin-danger-button"
-                      onClick={() => handleHardDelete(item)}
-                      disabled={!supabaseStatus.configured || pendingModerationId === item.id || !item.id}
-                    >
-                      <Trash2 size={16} />
-                      <span>{pendingModerationId === item.id ? '삭제 중...' : '영구 삭제'}</span>
-                    </button>
-                  </div>
-                ))}
+                  return (
+                    <div key={rowKey} className="admin-list-row">
+                      <div style={{ display: 'grid', gap: '0.25rem' }}>
+                        <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                          <span className={`admin-type-badge ${item.type}`}>{item.typeLabel}</span>
+                          <p style={{ fontWeight: 600 }}>{item.title}</p>
+                        </div>
+                        {item.content ? (
+                          <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap' }}>
+                            내용: {item.content}
+                          </p>
+                        ) : null}
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                          작성자: {item.author}
+                        </p>
+                        <p style={{ fontSize: '0.82rem', color: 'var(--text-tertiary)' }}>
+                          작성일: {formatDateTime(item.createdAt, '날짜 미상')}
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        className="btn-secondary admin-danger-button"
+                        onClick={() => handleModerationDelete(item)}
+                        disabled={!supabaseStatus.configured || isPending || !item.id}
+                      >
+                        <Trash2 size={16} />
+                        <span>
+                          {isPending ? (isSoftDelete ? '숨김 처리 중...' : '삭제 중...') : isSoftDelete ? '숨김 처리' : '영구 삭제'}
+                        </span>
+                      </button>
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>

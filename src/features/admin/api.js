@@ -7,6 +7,8 @@ const MEETUPS_TABLE = import.meta.env.VITE_SUPABASE_MEETUPS_TABLE || 'meetups'
 const GRACE_TABLE = import.meta.env.VITE_SUPABASE_GRACE_TABLE || 'grace_posts'
 const PRAYER_TABLE = import.meta.env.VITE_SUPABASE_PRAYER_TABLE || 'prayer_requests'
 const PRAISE_TABLE = import.meta.env.VITE_SUPABASE_PRAISE_TABLE || 'praise_recommendations'
+const POST_COMMENTS_TABLE = import.meta.env.VITE_SUPABASE_POST_COMMENTS_TABLE || 'post_comments'
+const CHAT_MESSAGES_TABLE = import.meta.env.VITE_SUPABASE_CHAT_MESSAGES_TABLE || 'chat_messages'
 
 const INVITE_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 const INVITE_CODE_LENGTH = 8
@@ -248,7 +250,45 @@ function toModerationContent(type, row) {
     return [row.artist, row.note, row.youtube_url].filter(Boolean).join(' · ')
   }
 
+  if (type === 'comment') {
+    if (row.is_deleted) {
+      return '삭제된 댓글'
+    }
+
+    return row.content || '(내용 없음)'
+  }
+
+  if (type === 'chat_message') {
+    if (row.is_deleted) {
+      return '삭제된 채팅 메시지'
+    }
+
+    return row.content || '(내용 없음)'
+  }
+
   return row.content || ''
+}
+
+function toModerationTitle(type, row) {
+  if (type === 'comment') {
+    const postTypeLabelMap = {
+      meetup: '벙개',
+      grace: '은혜',
+      prayer: '기도',
+      praise: '찬양',
+    }
+    const postType = String(row.post_type || '').toLowerCase()
+    const boardLabel = postTypeLabelMap[postType] || '게시글'
+    const postIdText = row.post_id ? `#${row.post_id}` : '미상'
+    return `${boardLabel} 게시글 ${postIdText} 댓글`
+  }
+
+  if (type === 'chat_message') {
+    const roomIdText = row.room_id ? `#${row.room_id}` : '미상'
+    return `채팅방 ${roomIdText} 메시지`
+  }
+
+  return row.title || '제목 없음'
 }
 
 function normalizeModerationRow(type, row, profileMap) {
@@ -257,7 +297,7 @@ function normalizeModerationRow(type, row, profileMap) {
   return {
     type,
     id: row.id,
-    title: row.title || '제목 없음',
+    title: toModerationTitle(type, row),
     content: toModerationContent(type, row),
     authorId,
     authorName: profileMap.get(authorId) || '이름 미상',
@@ -420,24 +460,33 @@ export async function updateProfileAdminStatus(profileId, isAdmin) {
 export async function listModerationPosts() {
   requireSupabaseConfigured()
 
-  const [meetupResult, graceResult, prayerResult, praiseResult] = await Promise.all([
-    supabase
-      .from(MEETUPS_TABLE)
-      .select('id, title, description, location, created_by, created_at, updated_at')
-      .order('created_at', { ascending: false }),
-    supabase
-      .from(GRACE_TABLE)
-      .select('id, title, content, author_id, created_at, updated_at')
-      .order('created_at', { ascending: false }),
-    supabase
-      .from(PRAYER_TABLE)
-      .select('id, title, content, author_id, created_at, updated_at')
-      .order('created_at', { ascending: false }),
-    supabase
-      .from(PRAISE_TABLE)
-      .select('id, title, artist, note, youtube_url, author_id, created_at, updated_at')
-      .order('created_at', { ascending: false }),
-  ])
+  const [meetupResult, graceResult, prayerResult, praiseResult, commentResult, chatMessageResult] =
+    await Promise.all([
+      supabase
+        .from(MEETUPS_TABLE)
+        .select('id, title, description, location, created_by, created_at, updated_at')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from(GRACE_TABLE)
+        .select('id, title, content, author_id, created_at, updated_at')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from(PRAYER_TABLE)
+        .select('id, title, content, author_id, created_at, updated_at')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from(PRAISE_TABLE)
+        .select('id, title, artist, note, youtube_url, author_id, created_at, updated_at')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from(POST_COMMENTS_TABLE)
+        .select('id, post_type, post_id, content, author_id, is_deleted, created_at, updated_at, edited_at, deleted_at')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from(CHAT_MESSAGES_TABLE)
+        .select('id, room_id, content, author_id, is_deleted, created_at, updated_at, edited_at, deleted_at')
+        .order('created_at', { ascending: false }),
+    ])
 
   if (meetupResult.error) {
     throw toError(meetupResult.error, '벙개 글을 불러오지 못했습니다.')
@@ -455,16 +504,28 @@ export async function listModerationPosts() {
     throw toError(praiseResult.error, '찬양 추천 글을 불러오지 못했습니다.')
   }
 
+  if (commentResult.error) {
+    throw toError(commentResult.error, '댓글을 불러오지 못했습니다.')
+  }
+
+  if (chatMessageResult.error) {
+    throw toError(chatMessageResult.error, '채팅 메시지를 불러오지 못했습니다.')
+  }
+
   const meetupsRows = meetupResult.data || []
   const graceRows = graceResult.data || []
   const prayerRows = prayerResult.data || []
   const praiseRows = praiseResult.data || []
+  const commentRows = commentResult.data || []
+  const chatMessageRows = chatMessageResult.data || []
 
   const profileMap = await fetchProfileNameMap([
     ...meetupsRows.map((row) => row.created_by),
     ...graceRows.map((row) => row.author_id),
     ...prayerRows.map((row) => row.author_id),
     ...praiseRows.map((row) => row.author_id),
+    ...commentRows.map((row) => row.author_id),
+    ...chatMessageRows.map((row) => row.author_id),
   ])
 
   return [
@@ -472,6 +533,8 @@ export async function listModerationPosts() {
     ...graceRows.map((row) => normalizeModerationRow('grace', row, profileMap)),
     ...prayerRows.map((row) => normalizeModerationRow('prayer', row, profileMap)),
     ...praiseRows.map((row) => normalizeModerationRow('praise', row, profileMap)),
+    ...commentRows.map((row) => normalizeModerationRow('comment', row, profileMap)),
+    ...chatMessageRows.map((row) => normalizeModerationRow('chat_message', row, profileMap)),
   ].sort((left, right) => {
     const leftTime = left.createdAt ? new Date(left.createdAt).getTime() : 0
     const rightTime = right.createdAt ? new Date(right.createdAt).getTime() : 0
@@ -496,7 +559,26 @@ function resolveModerationTable(type) {
     return PRAISE_TABLE
   }
 
+  if (type === 'comment' || type === 'comments' || type === 'post_comment' || type === 'post_comments') {
+    return POST_COMMENTS_TABLE
+  }
+
+  if (type === 'chat_message' || type === 'chat_messages') {
+    return CHAT_MESSAGES_TABLE
+  }
+
   return null
+}
+
+function isSoftDeleteModerationType(type) {
+  return (
+    type === 'comment' ||
+    type === 'comments' ||
+    type === 'post_comment' ||
+    type === 'post_comments' ||
+    type === 'chat_message' ||
+    type === 'chat_messages'
+  )
 }
 
 export async function deleteModerationPost(type, id) {
@@ -505,6 +587,25 @@ export async function deleteModerationPost(type, id) {
   const tableName = resolveModerationTable(type)
   if (!tableName) {
     throw new Error('삭제할 게시글 종류가 올바르지 않습니다.')
+  }
+
+  if (isSoftDeleteModerationType(type)) {
+    const nowIso = new Date().toISOString()
+    const { error } = await supabase
+      .from(tableName)
+      .update({
+        is_deleted: true,
+        content: '',
+        deleted_at: nowIso,
+        edited_at: nowIso,
+      })
+      .eq('id', id)
+
+    if (error) {
+      throw toError(error, '숨김 처리에 실패했습니다.')
+    }
+
+    return
   }
 
   const { error } = await supabase.from(tableName).delete().eq('id', id)

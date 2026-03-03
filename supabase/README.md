@@ -4,6 +4,7 @@
 
 - `migrations/20260301_initial.sql`
 - `migrations/20260302_bootstrap_owner_profile.sql`
+- `migrations/20260306_realtime_chat_and_comments.sql`
 
 포함 내용:
 - 핵심 테이블 10종

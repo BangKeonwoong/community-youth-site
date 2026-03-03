@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import PostComments from '../components/comments/PostComments'
 import { useMeetupsPage } from '../features/meetups/hooks'
 import { canManagePost } from '../features/profile/api'
 
@@ -277,70 +278,79 @@ function MeetupsContent() {
               style={{
                 padding: '1.25rem',
                 borderRadius: 'var(--radius-lg)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: '1rem',
-                flexWrap: 'wrap',
+                display: 'grid',
+                gap: '0.9rem',
               }}
             >
-              <div style={{ flex: '1 1 280px' }}>
-                <h3 style={{ fontSize: '1.15rem', fontWeight: 600, marginBottom: '0.35rem' }}>{meetup.title}</h3>
-                <p style={{ color: 'var(--text-primary)', opacity: 0.9, marginBottom: '0.35rem' }}>
-                  {meetup.description}
-                </p>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>
-                  {formatDateTime(meetup.eventAt)} • {meetup.location || '장소 미정'}
-                </p>
-                <p style={{ color: 'var(--text-tertiary)', fontSize: '0.82rem', marginTop: '0.25rem' }}>
-                  작성자: {meetup.authorName}
-                </p>
-              </div>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: '1rem',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <div style={{ flex: '1 1 280px' }}>
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: 600, marginBottom: '0.35rem' }}>{meetup.title}</h3>
+                  <p style={{ color: 'var(--text-primary)', opacity: 0.9, marginBottom: '0.35rem' }}>
+                    {meetup.description}
+                  </p>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>
+                    {formatDateTime(meetup.eventAt)} • {meetup.location || '장소 미정'}
+                  </p>
+                  <p style={{ color: 'var(--text-tertiary)', fontSize: '0.82rem', marginTop: '0.25rem' }}>
+                    작성자: {meetup.authorName}
+                  </p>
+                </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                <span
-                  style={{
-                    backgroundColor: 'var(--accent-light)',
-                    color: 'var(--accent-primary)',
-                    padding: '0.35rem 0.7rem',
-                    borderRadius: '999px',
-                    fontSize: '0.82rem',
-                    fontWeight: 600,
-                  }}
-                >
-                  {meetup.participantCount} / {meetup.capacity || '∞'} 명
-                </span>
-                <button
-                  className="btn-secondary"
-                  type="button"
-                  onClick={() => handleToggleParticipation(meetup.id)}
-                  disabled={isSubmitting || !supabaseStatus.configured}
-                >
-                  {meetup.isParticipating ? '참여 취소' : '참여하기'}
-                </button>
-
-                {canManage ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <span
+                    style={{
+                      backgroundColor: 'var(--accent-light)',
+                      color: 'var(--accent-primary)',
+                      padding: '0.35rem 0.7rem',
+                      borderRadius: '999px',
+                      fontSize: '0.82rem',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {meetup.participantCount} / {meetup.capacity || '∞'} 명
+                  </span>
                   <button
                     className="btn-secondary"
                     type="button"
-                    onClick={() => openEditForm(meetup)}
-                    disabled={isSubmitting}
+                    onClick={() => handleToggleParticipation(meetup.id)}
+                    disabled={isSubmitting || !supabaseStatus.configured}
                   >
-                    수정
+                    {meetup.isParticipating ? '참여 취소' : '참여하기'}
                   </button>
-                ) : null}
 
-                {canManage ? (
-                  <button
-                    className="btn-secondary"
-                    type="button"
-                    onClick={() => handleDelete(meetup.id)}
-                    disabled={isSubmitting}
-                  >
-                    삭제
-                  </button>
-                ) : null}
+                  {canManage ? (
+                    <button
+                      className="btn-secondary"
+                      type="button"
+                      onClick={() => openEditForm(meetup)}
+                      disabled={isSubmitting}
+                    >
+                      수정
+                    </button>
+                  ) : null}
+
+                  {canManage ? (
+                    <button
+                      className="btn-secondary"
+                      type="button"
+                      onClick={() => handleDelete(meetup.id)}
+                      disabled={isSubmitting}
+                    >
+                      삭제
+                    </button>
+                  ) : null}
+                </div>
               </div>
+
+              <PostComments postType="meetup" postId={meetup.id} />
             </div>
           )
         })}

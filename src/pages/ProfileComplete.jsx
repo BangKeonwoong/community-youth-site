@@ -11,6 +11,7 @@ const EMPTY_FORM = {
   displayName: null,
   birthDate: null,
   phoneNumber: null,
+  memberType: null,
   gender: null,
 }
 
@@ -44,6 +45,7 @@ function ProfileComplete() {
       displayName: form.displayName ?? profileQuery.data?.displayName ?? '',
       birthDate: form.birthDate ?? toDateInputValue(profileQuery.data?.birthDate),
       phoneNumber: form.phoneNumber ?? profileQuery.data?.phoneNumber ?? '',
+      memberType: form.memberType ?? profileQuery.data?.memberType ?? '',
       gender: form.gender ?? profileQuery.data?.gender ?? '',
     }),
     [form, profileQuery.data],
@@ -71,6 +73,7 @@ function ProfileComplete() {
         displayName: resolvedForm.displayName,
         birthDate: resolvedForm.birthDate,
         phoneNumber: resolvedForm.phoneNumber,
+        memberType: resolvedForm.memberType,
         gender: resolvedForm.gender,
       })
     } catch (error) {
@@ -122,6 +125,21 @@ function ProfileComplete() {
               placeholder="010-0000-0000"
               required
             />
+          </div>
+
+          <div className="profile-form-field">
+            <label htmlFor="profile-member-type">구분</label>
+            <select
+              id="profile-member-type"
+              value={resolvedForm.memberType}
+              onChange={(event) => setForm((prev) => ({ ...prev, memberType: event.target.value }))}
+              required
+            >
+              <option value="">선택</option>
+              <option value="pastor">교역자</option>
+              <option value="teacher">교사</option>
+              <option value="student">학생</option>
+            </select>
           </div>
 
           <div className="profile-form-field">

@@ -44,6 +44,12 @@ const MODERATION_TYPE_ALIASES = {
   chat_messages: 'chat_message',
 }
 
+const MEMBER_TYPE_LABELS = {
+  pastor: '교역자',
+  teacher: '교사',
+  student: '학생',
+}
+
 function asArray(value) {
   return Array.isArray(value) ? value : []
 }
@@ -194,7 +200,9 @@ function normalizeInvite(invite) {
 function normalizeProfile(profile) {
   return {
     id: profile?.id ?? profile?.userId ?? profile?.profileId,
+    loginId: profile?.loginId || profile?.login_id || '',
     displayName: profile?.displayName || profile?.display_name || profile?.name || '이름 미상',
+    memberType: profile?.memberType || profile?.member_type || '',
     email: profile?.email || profile?.userEmail || '',
     role: normalizeRole(profile),
   }
@@ -641,6 +649,7 @@ function AdminPage() {
                   const isAdmin = profile.role === 'admin'
                   const isSelfAdminDemotion =
                     isAdmin && currentProfile?.id && profile.id && currentProfile.id === profile.id
+                  const memberTypeLabel = MEMBER_TYPE_LABELS[profile.memberType] || profile.memberType || '미지정'
 
                   return (
                     <div key={profile.id || profile.displayName} className="admin-list-row">
@@ -651,6 +660,9 @@ function AdminPage() {
                           </span>
                           <p style={{ fontWeight: 600 }}>{profile.displayName}</p>
                         </div>
+                        <p style={{ fontSize: '0.82rem', color: 'var(--text-tertiary)' }}>
+                          아이디: {profile.loginId || '미지정'} • 구분: {memberTypeLabel}
+                        </p>
                         {profile.email ? (
                           <p style={{ fontSize: '0.82rem', color: 'var(--text-tertiary)' }}>{profile.email}</p>
                         ) : null}

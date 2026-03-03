@@ -4,6 +4,12 @@ import ErrorBanner from '../components/common/ErrorBanner'
 import { useAuth } from '../hooks/useAuth'
 
 const KR_MOBILE_PATTERN = /^01[016789][0-9]{7,8}$/
+const LOGIN_ID_PATTERN = /^[a-z0-9._-]{4,20}$/
+const MEMBER_TYPE_OPTIONS = [
+  { value: 'pastor', label: '교역자' },
+  { value: 'teacher', label: '교사' },
+  { value: 'student', label: '학생' },
+]
 
 function normalizePhoneNumber(value) {
   return String(value ?? '').replace(/\D/g, '')
@@ -14,11 +20,12 @@ function SetPassword() {
   const { signUpWithInvite } = useAuth()
 
   const [inviteCode, setInviteCode] = useState('')
+  const [loginId, setLoginId] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [birthDate, setBirthDate] = useState('')
   const [phoneNumber, setPhoneNumber] = useState('')
+  const [memberType, setMemberType] = useState('')
   const [gender, setGender] = useState('')
-  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
@@ -28,15 +35,26 @@ function SetPassword() {
     event.preventDefault()
     setError('')
 
+    const normalizedInviteCode = inviteCode.trim()
+    const normalizedLoginId = loginId.trim().toLowerCase()
     const normalizedDisplayName = displayName.trim()
     const normalizedBirthDate = birthDate.trim()
     const normalizedPhoneNumber = normalizePhoneNumber(phoneNumber)
+    const normalizedMemberType = memberType.trim().toLowerCase()
     const normalizedGender = gender.trim().toLowerCase()
-    const normalizedEmail = email.trim()
-    const normalizedInviteCode = inviteCode.trim()
+
+    if (!normalizedLoginId) {
+      setError('아이디를 입력해 주세요.')
+      return
+    }
+
+    if (!LOGIN_ID_PATTERN.test(normalizedLoginId)) {
+      setError('아이디는 영문 소문자/숫자/._- 조합 4~20자로 입력해 주세요.')
+      return
+    }
 
     if (!normalizedDisplayName) {
-      setError('표시 이름을 입력해 주세요.')
+      setError('이름을 입력해 주세요.')
       return
     }
 
@@ -55,18 +73,13 @@ function SetPassword() {
       return
     }
 
+    if (!['pastor', 'teacher', 'student'].includes(normalizedMemberType)) {
+      setError('구분을 선택해 주세요.')
+      return
+    }
+
     if (!(normalizedGender === 'male' || normalizedGender === 'female')) {
       setError('성별을 선택해 주세요.')
-      return
-    }
-
-    if (!normalizedEmail) {
-      setError('이메일을 입력해 주세요.')
-      return
-    }
-
-    if (!/\S+@\S+\.\S+/.test(normalizedEmail)) {
-      setError('올바른 이메일 형식으로 입력해 주세요.')
       return
     }
 
@@ -93,11 +106,12 @@ function SetPassword() {
     setIsSubmitting(true)
     const { data, error: signUpError } = await signUpWithInvite({
       inviteCode: normalizedInviteCode,
+      loginId: normalizedLoginId,
       displayName: normalizedDisplayName,
       birthDate: normalizedBirthDate,
       phoneNumber: normalizedPhoneNumber,
+      memberType: normalizedMemberType,
       gender: normalizedGender,
-      email: normalizedEmail,
       password,
     })
 
@@ -114,16 +128,16 @@ function SetPassword() {
 
     navigate('/login', {
       replace: true,
-      state: { message: '계정이 생성되었습니다. 이메일 인증 후 로그인해주세요.' },
+      state: { message: '가입이 완료되었습니다. 아이디와 비밀번호로 로그인해 주세요.' },
     })
   }
 
   return (
     <div className="container" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div className="glass animate-fade-in" style={{ padding: '2rem', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: '420px' }}>
-        <h1 style={{ fontSize: '1.5rem', marginBottom: '0.5rem', textAlign: 'center' }}>초대 확인</h1>
+        <h1 style={{ fontSize: '1.5rem', marginBottom: '0.5rem', textAlign: 'center' }}>회원가입</h1>
         <p style={{ color: 'var(--text-secondary)', textAlign: 'center', marginBottom: '1.5rem' }}>
-          초대코드(첫 관리자라면 비워도 됨)와 이메일로 계정을 생성하고 비밀번호를 설정하세요
+          초대코드와 기본 정보를 입력해 계정을 만드세요
         </p>
 
         <ErrorBanner message={error} />
@@ -138,7 +152,7 @@ function SetPassword() {
               type="text"
               value={inviteCode}
               onChange={(event) => setInviteCode(event.target.value)}
-              placeholder="INVITE-2026-XXXX (선택)"
+              placeholder="INVITE-2026-XXXX (첫 관리자만 비워도 됨)"
               style={{
                 width: '100%',
                 padding: '0.75rem',
@@ -149,9 +163,32 @@ function SetPassword() {
               }}
             />
           </div>
+
+          <div>
+            <label htmlFor="invite-login-id" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
+              아이디
+            </label>
+            <input
+              id="invite-login-id"
+              type="text"
+              value={loginId}
+              onChange={(event) => setLoginId(event.target.value)}
+              placeholder="example.id"
+              autoComplete="username"
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-color)',
+                background: 'var(--bg-secondary)',
+                color: 'var(--text-primary)',
+              }}
+            />
+          </div>
+
           <div>
             <label htmlFor="invite-display-name" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
-              표시 이름
+              이름
             </label>
             <input
               id="invite-display-name"
@@ -170,6 +207,7 @@ function SetPassword() {
               }}
             />
           </div>
+
           <div>
             <label htmlFor="invite-birth-date" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
               생년월일
@@ -190,9 +228,10 @@ function SetPassword() {
               }}
             />
           </div>
+
           <div>
             <label htmlFor="invite-phone-number" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
-              휴대폰 번호
+              전화번호
             </label>
             <input
               id="invite-phone-number"
@@ -211,6 +250,33 @@ function SetPassword() {
               }}
             />
           </div>
+
+          <div>
+            <label htmlFor="invite-member-type" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
+              구분
+            </label>
+            <select
+              id="invite-member-type"
+              value={memberType}
+              onChange={(event) => setMemberType(event.target.value)}
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-color)',
+                background: 'var(--bg-secondary)',
+                color: 'var(--text-primary)',
+              }}
+            >
+              <option value="">선택해 주세요</option>
+              {MEMBER_TYPE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div>
             <label htmlFor="invite-gender" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
               성별
@@ -233,30 +299,10 @@ function SetPassword() {
               <option value="female">여성</option>
             </select>
           </div>
-          <div>
-            <label htmlFor="invite-email" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
-              이메일
-            </label>
-            <input
-              id="invite-email"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="you@example.com"
-              autoComplete="email"
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--border-color)',
-                background: 'var(--bg-secondary)',
-                color: 'var(--text-primary)',
-              }}
-            />
-          </div>
+
           <div>
             <label htmlFor="invite-password" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
-              새 비밀번호
+              암호
             </label>
             <input
               id="invite-password"
@@ -276,16 +322,17 @@ function SetPassword() {
               }}
             />
           </div>
+
           <div>
             <label htmlFor="invite-password-confirm" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
-              비밀번호 확인
+              암호 확인
             </label>
             <input
               id="invite-password-confirm"
               type="password"
               value={confirmPassword}
               onChange={(event) => setConfirmPassword(event.target.value)}
-              placeholder="비밀번호 재입력"
+              placeholder="암호 재입력"
               autoComplete="new-password"
               minLength={8}
               style={{
@@ -300,7 +347,7 @@ function SetPassword() {
           </div>
 
           <button type="submit" className="btn-primary" disabled={isSubmitting} style={{ marginTop: '0.5rem', width: '100%', opacity: isSubmitting ? 0.8 : 1 }}>
-            {isSubmitting ? '설정 중...' : '설정 및 시작하기'}
+            {isSubmitting ? '가입 중...' : '가입하기'}
           </button>
         </form>
 

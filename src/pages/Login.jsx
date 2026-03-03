@@ -6,9 +6,9 @@ import { useAuth } from '../hooks/useAuth'
 function Login() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { signInWithEmail } = useAuth()
+  const { signInWithLoginId } = useAuth()
 
-  const [email, setEmail] = useState('')
+  const [loginId, setLoginId] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -20,8 +20,8 @@ function Login() {
     setError('')
     setIsSubmitting(true)
 
-    const { error: signInError } = await signInWithEmail({
-      email: email.trim(),
+    const { error: signInError } = await signInWithLoginId({
+      loginId: loginId.trim().toLowerCase(),
       password,
     })
 
@@ -62,16 +62,16 @@ function Login() {
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div>
-            <label htmlFor="login-email" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
-              이메일
+            <label htmlFor="login-id" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
+              아이디
             </label>
             <input
-              id="login-email"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="you@example.com"
-              autoComplete="email"
+              id="login-id"
+              type="text"
+              value={loginId}
+              onChange={(event) => setLoginId(event.target.value)}
+              placeholder="example.id"
+              autoComplete="username"
               required
               style={{
                 width: '100%',
@@ -112,11 +112,11 @@ function Login() {
         </form>
 
         <p style={{ marginTop: '1rem', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-          초대받은 사용자라면{' '}
+          계정이 없다면{' '}
           <Link to="/invite" style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>
-            비밀번호 설정
+            회원가입
           </Link>
-          을 먼저 진행하세요.
+          하세요.
         </p>
       </div>
     </div>

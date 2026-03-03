@@ -4,7 +4,12 @@
 
 - `migrations/20260301_initial.sql`
 - `migrations/20260302_bootstrap_owner_profile.sql`
+- `migrations/20260303_admin_invite_multiuse.sql`
+- `migrations/20260304_public_invite_birthday_messages.sql`
+- `migrations/20260305_schedule_calendar_events.sql`
 - `migrations/20260306_realtime_chat_and_comments.sql`
+- `migrations/20260307_grace_scripture_anonymous.sql`
+- `migrations/20260308_login_id_member_type_auth.sql`
 
 포함 내용:
 - 핵심 테이블 10종
@@ -21,8 +26,9 @@
 - 공통 `updated_at` 트리거 함수: `set_updated_at()`
 - 관리자 판별 함수: `is_admin(uuid)`
 - 첫 가입자 관리자 부트스트랩 트리거: `bootstrap_first_user_admin()`
-- 초대코드 사용 RPC: `redeem_invite_code(code, display_name)`
-- 최초 관리자 부트스트랩 RPC: `bootstrap_owner_profile(display_name)`
+- 초대코드 사용 RPC: `redeem_invite_code(code, login_id, display_name, birth_date, phone_number, member_type, gender)`
+- 최초 관리자 부트스트랩 RPC: `bootstrap_owner_profile(login_id, display_name, birth_date, phone_number, member_type, gender)`
+- 아이디 매핑 RPC: `resolve_login_email(login_id)`
 - 전체 RLS 활성화 및 정책
 
 ## 적용 방법
@@ -46,13 +52,21 @@ supabase db push
 
 ```sql
 select *
-from public.redeem_invite_code('ABC12345', '홍길동');
+from public.redeem_invite_code(
+  p_code => 'ABC12345',
+  p_login_id => 'sample.id',
+  p_display_name => '홍길동',
+  p_birth_date => '2008-01-01',
+  p_phone_number => '01012345678',
+  p_member_type => 'student',
+  p_gender => 'male'
+);
 ```
 
 동작:
 - 로그인 사용자(`auth.uid()`) 필요
 - 유효한 초대코드인지 검증
-- 만료/중복 사용/이메일 불일치 검증
+- 만료/중복 사용/사용량 검증
 - `profiles` upsert
 - `invite_codes`를 사용 완료 상태로 변경
 
@@ -62,7 +76,14 @@ from public.redeem_invite_code('ABC12345', '홍길동');
 
 ```sql
 select *
-from public.bootstrap_owner_profile('홍길동');
+from public.bootstrap_owner_profile(
+  p_login_id => 'admin.id',
+  p_display_name => '관리자',
+  p_birth_date => '1990-01-01',
+  p_phone_number => '01012345678',
+  p_member_type => 'pastor',
+  p_gender => 'male'
+);
 ```
 
 동작:

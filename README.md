@@ -25,8 +25,8 @@ VITE_SUPABASE_ANON_KEY=...
 - `VITE_SUPABASE_ANON_KEY`는 클라이언트 공개용 키입니다.
 - `SUPABASE_SERVICE_ROLE_KEY`는 절대 프론트엔드(코드/`.env`/GitHub Pages)에 넣지 않습니다.
 
-초대코드 기반 가입 플로우를 즉시 사용하려면 Supabase Auth 설정에서
-`Confirm email`을 비활성화하거나, 이메일 인증 직후 로그인 후 초대코드 등록을 진행해야 합니다.
+아이디 기반 가입/로그인 플로우를 사용하므로 Supabase Auth 설정에서
+`Confirm email`을 비활성화해야 합니다.
 
 초기 온보딩:
 - 첫 사용자 1명은 `/invite`에서 초대코드를 비워 가입하면 관리자 프로필이 자동 부트스트랩됩니다.
@@ -62,7 +62,12 @@ VITE_SUPABASE_ANON_KEY=...
 
 - `supabase/migrations/20260301_initial.sql`
 - `supabase/migrations/20260302_bootstrap_owner_profile.sql`
+- `supabase/migrations/20260303_admin_invite_multiuse.sql`
+- `supabase/migrations/20260304_public_invite_birthday_messages.sql`
+- `supabase/migrations/20260305_schedule_calendar_events.sql`
 - `supabase/migrations/20260306_realtime_chat_and_comments.sql`
+- `supabase/migrations/20260307_grace_scripture_anonymous.sql`
+- `supabase/migrations/20260308_login_id_member_type_auth.sql`
 
 적용/운영 가이드는 `supabase/README.md`를 참고하세요.
 

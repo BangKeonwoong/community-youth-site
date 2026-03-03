@@ -185,7 +185,9 @@ function generateInviteCode(length = INVITE_CODE_LENGTH) {
 function normalizeProfileRow(row) {
   return {
     id: row.id,
+    loginId: row.login_id || '',
     displayName: row.display_name || '이름 미상',
+    memberType: row.member_type || '',
     isAdmin: Boolean(row.is_admin),
     role: row.is_admin ? 'admin' : 'member',
     createdAt: row.created_at || null,
@@ -433,7 +435,7 @@ export async function listProfiles() {
 
   const { data, error } = await supabase
     .from(PROFILE_TABLE)
-    .select('id, display_name, is_admin, created_at, updated_at')
+    .select('id, login_id, display_name, member_type, is_admin, created_at, updated_at')
     .order('is_admin', { ascending: false })
     .order('created_at', { ascending: true })
 

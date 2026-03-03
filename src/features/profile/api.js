@@ -9,9 +9,12 @@ const PROFILE_TABLE = import.meta.env.VITE_SUPABASE_PROFILE_TABLE || 'profiles'
 const FALLBACK_PROFILE_ID = import.meta.env.VITE_DEFAULT_USER_ID || 'local-user'
 const FALLBACK_PROFILE_NAME = import.meta.env.VITE_DEFAULT_USER_NAME || '게스트'
 const VALID_PROFILE_GENDERS = new Set(['male', 'female'])
+const VALID_MEMBER_TYPES = new Set(['pastor', 'teacher', 'student'])
 const KR_MOBILE_PATTERN = /^01[016789][0-9]{7,8}$/
+const LOGIN_ID_PATTERN = /^[a-z0-9._-]{4,20}$/
 
 export const SUPABASE_NOT_CONFIGURED_CODE = 'SUPABASE_NOT_CONFIGURED'
+
 function normalizeRoleFromRow(row) {
   if (!row) {
     return 'member'
@@ -27,9 +30,11 @@ function normalizeRoleFromRow(row) {
 function createFallbackProfile(source = 'fallback') {
   return {
     id: FALLBACK_PROFILE_ID,
+    loginId: '',
     displayName: FALLBACK_PROFILE_NAME,
     birthDate: '',
     phoneNumber: '',
+    memberType: '',
     gender: '',
     role: 'member',
     source,
@@ -54,9 +59,18 @@ function toIsoDateOrEmpty(value) {
   return date.toISOString().slice(0, 10)
 }
 
+function normalizeLoginId(value) {
+  return toTrimmedOrEmpty(value).toLowerCase()
+}
+
 function normalizeGender(value) {
   const normalized = toTrimmedOrEmpty(value).toLowerCase()
   return VALID_PROFILE_GENDERS.has(normalized) ? normalized : ''
+}
+
+function normalizeMemberType(value) {
+  const normalized = toTrimmedOrEmpty(value).toLowerCase()
+  return VALID_MEMBER_TYPES.has(normalized) ? normalized : ''
 }
 
 function normalizePhoneNumber(value) {
@@ -66,9 +80,11 @@ function normalizePhoneNumber(value) {
 function normalizeProfile(row, source = 'database') {
   return {
     id: row.id,
+    loginId: normalizeLoginId(row.login_id || row.loginId),
     displayName: toTrimmedOrEmpty(row.display_name || FALLBACK_PROFILE_NAME),
     birthDate: toIsoDateOrEmpty(row.birth_date || row.birthDate),
     phoneNumber: toTrimmedOrEmpty(row.phone_number || row.phoneNumber),
+    memberType: normalizeMemberType(row.member_type || row.memberType),
     gender: normalizeGender(row.gender),
     role: normalizeRoleFromRow(row),
     source,
@@ -105,6 +121,15 @@ function assertPhoneNumber(phoneNumber) {
 
   if (!KR_MOBILE_PATTERN.test(value)) {
     throw new Error('휴대폰 번호 형식이 올바르지 않습니다.')
+  }
+
+  return value
+}
+
+function assertMemberType(memberType) {
+  const value = normalizeMemberType(memberType)
+  if (!value) {
+    throw new Error('구분을 선택해 주세요.')
   }
 
   return value
@@ -172,12 +197,12 @@ function mapOnboardingErrorMessage(rawMessage) {
     return '회수된 초대코드입니다. 관리자에게 새 코드를 요청해 주세요.'
   }
 
-  if (message.includes('INVITE_EMAIL_MISMATCH')) {
-    return '초대코드에 등록된 이메일과 로그인한 이메일이 다릅니다.'
-  }
-
   if (message.includes('USER_ALREADY_REDEEMED')) {
     return '이미 초대코드가 적용된 계정입니다. 다시 로그인해 주세요.'
+  }
+
+  if (message.includes('LOGIN_ID_ALREADY_IN_USE')) {
+    return '이미 사용 중인 아이디입니다.'
   }
 
   if (message.includes('AUTH_REQUIRED')) {
@@ -185,11 +210,15 @@ function mapOnboardingErrorMessage(rawMessage) {
   }
 
   if (message.includes('PROFILE_INCOMPLETE')) {
-    return '필수 프로필 정보가 누락되었습니다. 이름, 생년월일, 휴대폰 번호, 성별을 확인해 주세요.'
+    return '필수 프로필 정보가 누락되었습니다. 이름, 생년월일, 전화번호, 구분, 성별을 확인해 주세요.'
+  }
+
+  if (message.includes('INVALID_LOGIN_ID')) {
+    return '아이디 형식이 올바르지 않습니다. (영문 소문자/숫자/._-, 4~20자)'
   }
 
   if (message.includes('INVALID_DISPLAY_NAME')) {
-    return '표시 이름은 2자 이상 40자 이하로 입력해 주세요.'
+    return '이름은 2자 이상 40자 이하로 입력해 주세요.'
   }
 
   if (message.includes('INVALID_BIRTH_DATE')) {
@@ -198,6 +227,10 @@ function mapOnboardingErrorMessage(rawMessage) {
 
   if (message.includes('INVALID_PHONE_NUMBER')) {
     return '휴대폰 번호 형식이 올바르지 않습니다.'
+  }
+
+  if (message.includes('INVALID_MEMBER_TYPE')) {
+    return '구분 값이 올바르지 않습니다.'
   }
 
   if (message.includes('INVALID_GENDER')) {
@@ -209,17 +242,23 @@ function mapOnboardingErrorMessage(rawMessage) {
 
 async function completeOnboardingForUser(user) {
   const inviteCode = String(user?.user_metadata?.invite_code || '').trim()
+  const loginId =
+    normalizeLoginId(user?.user_metadata?.login_id) ||
+    normalizeLoginId(String(user?.email || '').split('@')[0])
   const displayName = resolveDisplayName(user)
   const birthDate = toIsoDateOrEmpty(user?.user_metadata?.birth_date)
   const phoneNumber = normalizePhoneNumber(user?.user_metadata?.phone_number)
+  const memberType = normalizeMemberType(user?.user_metadata?.member_type) || 'student'
   const gender = normalizeGender(user?.user_metadata?.gender)
 
   if (inviteCode) {
     const { error } = await supabase.rpc('redeem_invite_code', {
       p_code: inviteCode,
+      p_login_id: loginId || null,
       p_display_name: displayName,
       p_birth_date: birthDate || null,
       p_phone_number: phoneNumber || null,
+      p_member_type: memberType || null,
       p_gender: gender || null,
     })
 
@@ -235,9 +274,11 @@ async function completeOnboardingForUser(user) {
   }
 
   const { error } = await supabase.rpc('bootstrap_owner_profile', {
+    p_login_id: loginId || null,
     p_display_name: displayName,
     p_birth_date: birthDate || null,
     p_phone_number: phoneNumber || null,
+    p_member_type: memberType || null,
     p_gender: gender || null,
   })
 
@@ -277,7 +318,7 @@ export async function getCurrentUserId() {
 async function getProfileByUserId(userId) {
   const { data, error } = await supabase
     .from(PROFILE_TABLE)
-    .select('id, display_name, birth_date, phone_number, gender, is_admin')
+    .select('id, login_id, display_name, birth_date, phone_number, member_type, gender, is_admin')
     .eq('id', userId)
     .maybeSingle()
 
@@ -325,12 +366,22 @@ export function isProfileComplete(profile) {
     return true
   }
 
+  const loginId = normalizeLoginId(profile.loginId)
   const displayName = toTrimmedOrEmpty(profile.displayName)
   const birthDate = toIsoDateOrEmpty(profile.birthDate)
   const phoneNumber = normalizePhoneNumber(profile.phoneNumber)
+  const memberType = normalizeMemberType(profile.memberType)
   const gender = normalizeGender(profile.gender)
 
-  return Boolean(displayName && birthDate && phoneNumber && KR_MOBILE_PATTERN.test(phoneNumber) && gender)
+  return Boolean(
+    LOGIN_ID_PATTERN.test(loginId) &&
+      displayName &&
+      birthDate &&
+      phoneNumber &&
+      KR_MOBILE_PATTERN.test(phoneNumber) &&
+      memberType &&
+      gender,
+  )
 }
 
 export async function updateCurrentProfileDetails(payload) {
@@ -339,12 +390,14 @@ export async function updateCurrentProfileDetails(payload) {
   const displayName = assertDisplayName(payload?.displayName)
   const birthDate = assertBirthDate(payload?.birthDate)
   const phoneNumber = assertPhoneNumber(payload?.phoneNumber)
+  const memberType = assertMemberType(payload?.memberType)
   const gender = assertGender(payload?.gender)
 
   const { data, error } = await supabase.rpc('upsert_profile_details', {
     p_display_name: displayName,
     p_birth_date: birthDate,
     p_phone_number: phoneNumber,
+    p_member_type: memberType,
     p_gender: gender,
   })
 

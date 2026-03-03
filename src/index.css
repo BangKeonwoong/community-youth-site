@@ -932,6 +932,45 @@ button {
   font-size: 0.93rem;
 }
 
+.chat-message-delivery-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.chat-message-delivery {
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+}
+
+.chat-message-delivery.sending {
+  color: var(--text-tertiary);
+}
+
+.chat-message-delivery.failed {
+  color: #dc2626;
+}
+
+.chat-message-retry-button {
+  padding: 0.22rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid #fecaca;
+  background-color: #fee2e2;
+  color: #b91c1c;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.chat-message-retry-button:hover {
+  background-color: #fecaca;
+}
+
+.chat-message-retry-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .chat-message-actions {
   display: flex;
   justify-content: flex-end;

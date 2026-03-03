@@ -113,6 +113,9 @@ function normalizeChatMessage(row, profileMap, currentProfileId) {
     editedAt: row?.edited_at ?? null,
     deletedAt: row?.deleted_at ?? null,
     isMine: Boolean(currentProfileId && row?.author_id && currentProfileId === row.author_id),
+    clientId: null,
+    sendState: 'sent',
+    sendError: null,
   }
 }
 

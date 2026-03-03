@@ -5,7 +5,7 @@ function ChatComposer({
   onKeyDown,
   onSubmit,
   disabled,
-  isSubmitting,
+  isSending,
 }) {
   return (
     <form className="chat-message-compose-form" onSubmit={onSubmit}>
@@ -25,7 +25,7 @@ function ChatComposer({
           className="btn-primary"
           disabled={disabled || !value.trim()}
         >
-          {isSubmitting ? '전송 중...' : '전송'}
+          {isSending ? '전송 중...' : '전송'}
         </button>
       </div>
     </form>

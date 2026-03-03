@@ -48,9 +48,12 @@ function ChatRooms() {
     createRoom,
     deleteRoom,
     sendMessage,
+    retryFailedMessage,
     updateMessage,
     deleteMessage,
-    isSubmitting,
+    isRoomSubmitting,
+    isMessageSending,
+    isMessageMutating,
   } = useChatPage({ selectedRoomId })
 
   const {
@@ -101,7 +104,8 @@ function ChatRooms() {
       const message = payload?.message
       const canManage = payload?.canManage
 
-      if (!message || !canManage || message.isDeleted || editingMessageId === message.id) {
+      const isServerSynced = (message?.sendState || 'sent') === 'sent'
+      if (!message || !canManage || !isServerSynced || message.isDeleted || editingMessageId === message.id) {
         return
       }
 
@@ -144,25 +148,26 @@ function ChatRooms() {
     }
   }
 
-  const handleSendMessage = async (event) => {
+  const handleSendMessage = (event) => {
     event.preventDefault()
     if (!activeRoomId) {
       return
     }
 
+    const draft = messageDraft
+    if (!draft.trim()) {
+      return
+    }
+
     setFeedback('')
     shouldScrollOnSentMessageRef.current = true
+    setMessageDraft('')
+    closeMessageActionMenu()
+    focusComposeInput()
 
-    try {
-      await sendMessage({ roomId: activeRoomId, content: messageDraft })
-      setMessageDraft('')
-      closeMessageActionMenu()
-    } catch (sendError) {
-      shouldScrollOnSentMessageRef.current = false
+    sendMessage({ roomId: activeRoomId, content: draft }).catch((sendError) => {
       setFeedback(sendError.message)
-    } finally {
-      focusComposeInput()
-    }
+    })
   }
 
   const handleEditMessage = async (event, messageId) => {
@@ -170,7 +175,7 @@ function ChatRooms() {
     setFeedback('')
 
     try {
-      await updateMessage({ messageId, content: editingDraft })
+      await updateMessage({ messageId, content: editingDraft, roomId: activeRoomId })
       setEditingMessageId(null)
       setEditingDraft('')
       closeMessageActionMenu()
@@ -188,7 +193,7 @@ function ChatRooms() {
     closeMessageActionMenu()
 
     try {
-      await deleteMessage(message.id)
+      await deleteMessage({ messageId: message.id, roomId: activeRoomId })
       if (editingMessageId === message.id) {
         setEditingMessageId(null)
         setEditingDraft('')
@@ -205,7 +210,7 @@ function ChatRooms() {
 
     event.preventDefault()
 
-    if (isSubmitting || !activeRoomId || !messageDraft.trim()) {
+    if (!activeRoomId || !messageDraft.trim()) {
       return
     }
 
@@ -219,7 +224,7 @@ function ChatRooms() {
 
     event.preventDefault()
 
-    if (isSubmitting || !editingDraft.trim()) {
+    if (isMessageMutating || !editingDraft.trim()) {
       return
     }
 
@@ -227,7 +232,8 @@ function ChatRooms() {
   }
 
   const handleMessageContextMenu = (event, message, canManage) => {
-    if (!canManage || message.isDeleted || editingMessageId === message.id) {
+    const isServerSynced = (message?.sendState || 'sent') === 'sent'
+    if (!canManage || !isServerSynced || message.isDeleted || editingMessageId === message.id) {
       return
     }
 
@@ -240,12 +246,17 @@ function ChatRooms() {
   }
 
   const handleMessageTouchStart = (event, message, canManage) => {
-    const enabled = Boolean(canManage && !message.isDeleted && editingMessageId !== message.id)
+    const isServerSynced = (message?.sendState || 'sent') === 'sent'
+    const enabled = Boolean(canManage && isServerSynced && !message.isDeleted && editingMessageId !== message.id)
     longPressContextMenu.onTouchStart(event, { message, canManage }, enabled)
   }
 
   const handleContextEdit = () => {
-    if (!selectedContextMessage || selectedContextMessage.isDeleted) {
+    if (
+      !selectedContextMessage ||
+      selectedContextMessage.isDeleted ||
+      (selectedContextMessage.sendState || 'sent') !== 'sent'
+    ) {
       closeMessageActionMenu()
       return
     }
@@ -256,12 +267,28 @@ function ChatRooms() {
   }
 
   const handleContextDelete = () => {
-    if (!selectedContextMessage || selectedContextMessage.isDeleted) {
+    if (
+      !selectedContextMessage ||
+      selectedContextMessage.isDeleted ||
+      (selectedContextMessage.sendState || 'sent') !== 'sent'
+    ) {
       closeMessageActionMenu()
       return
     }
 
     handleDeleteMessage(selectedContextMessage)
+  }
+
+  const handleRetryMessage = async (messageId) => {
+    shouldScrollOnSentMessageRef.current = true
+    setFeedback('')
+
+    try {
+      await retryFailedMessage(messageId)
+      focusComposeInput()
+    } catch (retryError) {
+      setFeedback(retryError.message)
+    }
   }
 
   return (
@@ -292,7 +319,7 @@ function ChatRooms() {
                 setFeedback('')
                 setIsCreateFormOpen((prev) => !prev)
               }}
-              disabled={!supabaseStatus.configured || isSubmitting}
+              disabled={!supabaseStatus.configured || isRoomSubmitting}
             >
               {isCreateFormOpen ? '닫기' : '방 만들기'}
             </button>
@@ -313,8 +340,8 @@ function ChatRooms() {
                 placeholder="채팅방 설명 (선택)"
               />
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <button type="submit" className="btn-primary" disabled={isSubmitting}>
-                  {isSubmitting ? '생성 중...' : '생성'}
+                <button type="submit" className="btn-primary" disabled={isRoomSubmitting}>
+                  {isRoomSubmitting ? '생성 중...' : '생성'}
                 </button>
               </div>
             </form>
@@ -380,9 +407,9 @@ function ChatRooms() {
                     type="button"
                     className="btn-secondary admin-danger-button"
                     onClick={() => handleDeleteRoom(selectedRoom)}
-                    disabled={!supabaseStatus.configured || isSubmitting}
+                    disabled={!supabaseStatus.configured || isRoomSubmitting}
                   >
-                    {isSubmitting ? '처리 중...' : '방 삭제'}
+                    {isRoomSubmitting ? '처리 중...' : '방 삭제'}
                   </button>
                 ) : null}
               </div>
@@ -412,7 +439,7 @@ function ChatRooms() {
                         message={message}
                         canManage={canManage}
                         isEditing={editingMessageId === message.id}
-                        isSubmitting={isSubmitting}
+                        isSubmitting={isMessageMutating}
                         isContextOpen={messageActionMenu.open && messageActionMenu.messageId === message.id}
                         editingDraft={editingDraft}
                         onEditingDraftChange={setEditingDraft}
@@ -427,6 +454,7 @@ function ChatRooms() {
                         onTouchMove={longPressContextMenu.onTouchMove}
                         onTouchEnd={longPressContextMenu.onTouchEnd}
                         onTouchCancel={longPressContextMenu.onTouchCancel}
+                        onRetry={handleRetryMessage}
                       />
                     )
                   })
@@ -439,8 +467,8 @@ function ChatRooms() {
                 onChange={setMessageDraft}
                 onKeyDown={handleComposeKeyDown}
                 onSubmit={handleSendMessage}
-                disabled={!supabaseStatus.configured || isSubmitting || !activeRoomId}
-                isSubmitting={isSubmitting}
+                disabled={!supabaseStatus.configured || !activeRoomId}
+                isSending={isMessageSending}
               />
 
               <MessageContextMenu
@@ -451,14 +479,16 @@ function ChatRooms() {
                 onEdit={handleContextEdit}
                 onDelete={handleContextDelete}
                 disabledEdit={
-                  isSubmitting ||
+                  isMessageMutating ||
                   !selectedContextMessage ||
-                  selectedContextMessage.isDeleted
+                  selectedContextMessage.isDeleted ||
+                  (selectedContextMessage.sendState || 'sent') !== 'sent'
                 }
                 disabledDelete={
-                  isSubmitting ||
+                  isMessageMutating ||
                   !selectedContextMessage ||
-                  selectedContextMessage.isDeleted
+                  selectedContextMessage.isDeleted ||
+                  (selectedContextMessage.sendState || 'sent') !== 'sent'
                 }
               />
             </>

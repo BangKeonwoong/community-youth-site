@@ -17,8 +17,12 @@ function ChatMessageItem({
   onTouchMove,
   onTouchEnd,
   onTouchCancel,
+  onRetry,
 }) {
   const alignmentClass = message.isMine ? 'mine' : 'other'
+  const sendState = message.sendState || 'sent'
+  const isSending = sendState === 'sending'
+  const isFailed = sendState === 'failed'
 
   return (
     <div
@@ -58,9 +62,31 @@ function ChatMessageItem({
             </div>
           </form>
         ) : (
-          <p className="chat-message-content">
-            {message.isDeleted ? '삭제된 메시지입니다.' : message.content || '삭제된 메시지입니다.'}
-          </p>
+          <>
+            <p className="chat-message-content">
+              {message.isDeleted ? '삭제된 메시지입니다.' : message.content || '삭제된 메시지입니다.'}
+            </p>
+            {message.isMine && !message.isDeleted && (isSending || isFailed) ? (
+              <div className="chat-message-delivery-row">
+                {isSending ? <span className="chat-message-delivery sending">전송 중...</span> : null}
+                {isFailed ? (
+                  <span className="chat-message-delivery failed">
+                    {message.sendError || '전송에 실패했습니다.'}
+                  </span>
+                ) : null}
+                {isFailed ? (
+                  <button
+                    type="button"
+                    className="chat-message-retry-button"
+                    onClick={() => onRetry?.(message.id)}
+                    disabled={isSubmitting}
+                  >
+                    재전송
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+          </>
         )}
       </article>
     </div>

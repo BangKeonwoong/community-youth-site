@@ -4,6 +4,10 @@ import { usePostComments } from '../../features/comments/hooks'
 
 const MAX_INDENT_DEPTH = 10
 
+function isSubmitEnter(event) {
+  return event.key === 'Enter' && !event.shiftKey && !event.nativeEvent?.isComposing
+}
+
 function formatDateTime(value) {
   if (!value) {
     return '방금 전'
@@ -65,11 +69,26 @@ function CommentComposer({
   disabled,
   autoFocus = false,
 }) {
+  const handleKeyDown = (event) => {
+    if (!isSubmitEnter(event)) {
+      return
+    }
+
+    event.preventDefault()
+
+    if (disabled || !value.trim()) {
+      return
+    }
+
+    event.currentTarget.form?.requestSubmit()
+  }
+
   return (
     <form className="comments-composer" onSubmit={onSubmit}>
       <textarea
         value={value}
         onChange={(event) => onChange(event.target.value)}
+        onKeyDown={handleKeyDown}
         placeholder={placeholder}
         rows={3}
         disabled={disabled}

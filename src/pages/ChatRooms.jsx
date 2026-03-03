@@ -8,6 +8,10 @@ const EMPTY_ROOM_FORM = {
   description: '',
 }
 
+function isSubmitEnter(event) {
+  return event.key === 'Enter' && !event.shiftKey && !event.nativeEvent?.isComposing
+}
+
 function formatDateTime(value) {
   if (!value) {
     return '시간 미정'
@@ -143,6 +147,34 @@ function ChatRooms() {
     } catch (deleteError) {
       setFeedback(deleteError.message)
     }
+  }
+
+  const handleComposeKeyDown = (event) => {
+    if (!isSubmitEnter(event)) {
+      return
+    }
+
+    event.preventDefault()
+
+    if (isSubmitting || !activeRoomId || !messageDraft.trim()) {
+      return
+    }
+
+    event.currentTarget.form?.requestSubmit()
+  }
+
+  const handleEditKeyDown = (event) => {
+    if (!isSubmitEnter(event)) {
+      return
+    }
+
+    event.preventDefault()
+
+    if (isSubmitting || !editingDraft.trim()) {
+      return
+    }
+
+    event.currentTarget.form?.requestSubmit()
   }
 
   return (
@@ -294,6 +326,7 @@ function ChatRooms() {
                               rows={3}
                               value={editingDraft}
                               onChange={(event) => setEditingDraft(event.target.value)}
+                              onKeyDown={handleEditKeyDown}
                               required
                             />
                             <div className="chat-message-edit-actions">
@@ -357,6 +390,7 @@ function ChatRooms() {
                   rows={3}
                   value={messageDraft}
                   onChange={(event) => setMessageDraft(event.target.value)}
+                  onKeyDown={handleComposeKeyDown}
                   placeholder="메시지를 입력하세요"
                   required
                   disabled={!supabaseStatus.configured || isSubmitting || !activeRoomId}

@@ -199,7 +199,7 @@ function PrayerRequestsContent() {
             value={form.title}
             onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
             placeholder="기도제목 제목"
-            style={inputStyle}
+            className="form-control"
             required
           />
           <textarea
@@ -207,7 +207,7 @@ function PrayerRequestsContent() {
             onChange={(event) => setForm((prev) => ({ ...prev, content: event.target.value }))}
             placeholder="구체적인 기도 내용을 적어주세요"
             rows={4}
-            style={{ ...inputStyle, resize: 'vertical' }}
+            className="form-control"
             required
           />
 
@@ -337,14 +337,7 @@ function PrayerRequestsContent() {
   )
 }
 
-const inputStyle = {
-  width: '100%',
-  border: '1px solid var(--border-color)',
-  borderRadius: 'var(--radius-md)',
-  backgroundColor: 'var(--bg-secondary)',
-  color: 'var(--text-primary)',
-  padding: '0.7rem 0.8rem',
-}
+
 
 function PrayerRequests() {
   return <PrayerRequestsContent />

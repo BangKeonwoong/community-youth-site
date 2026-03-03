@@ -525,7 +525,7 @@ function AdminPage() {
                   id="admin-invite-label"
                   value={inviteForm.inviteLabel}
                   onChange={(event) => handleInviteInputChange('inviteLabel', event.target.value)}
-                  className="admin-input"
+                  className="form-control"
                   placeholder="예: 2026 상반기 공개 초대"
                 />
               </div>
@@ -538,7 +538,7 @@ function AdminPage() {
                   min={1}
                   value={inviteForm.maxUses}
                   onChange={(event) => handleInviteInputChange('maxUses', event.target.value)}
-                  className="admin-input"
+                  className="form-control"
                 />
               </div>
 
@@ -549,7 +549,7 @@ function AdminPage() {
                   type="datetime-local"
                   value={inviteForm.expiresAt}
                   onChange={(event) => handleInviteInputChange('expiresAt', event.target.value)}
-                  className="admin-input"
+                  className="form-control"
                 />
               </div>
 
@@ -559,7 +559,7 @@ function AdminPage() {
                   id="admin-code"
                   value={inviteForm.code}
                   onChange={(event) => handleInviteInputChange('code', event.target.value.toUpperCase())}
-                  className="admin-input"
+                  className="form-control"
                   placeholder="비우면 자동 생성"
                 />
               </div>
@@ -570,7 +570,7 @@ function AdminPage() {
                   id="admin-note"
                   value={inviteForm.note}
                   onChange={(event) => handleInviteInputChange('note', event.target.value)}
-                  className="admin-input"
+                  className="form-control"
                   rows={3}
                   placeholder="관리 메모를 남기세요."
                 />

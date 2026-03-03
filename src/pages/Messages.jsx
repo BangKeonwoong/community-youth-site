@@ -123,6 +123,7 @@ function Messages() {
                 id="messages-receiver"
                 value={effectiveReceiverId}
                 onChange={(event) => setCompose((prev) => ({ ...prev, receiverId: event.target.value }))}
+                className="form-control"
                 required
               >
                 {recipients.map((recipient) => (
@@ -142,6 +143,7 @@ function Messages() {
                 rows={4}
                 maxLength={500}
                 placeholder="메시지를 입력해 주세요"
+                className="form-control"
                 required
               />
             </label>

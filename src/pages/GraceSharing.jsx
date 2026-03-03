@@ -274,12 +274,12 @@ function GraceSharingContent() {
     setScriptureSelection(
       post.scripture
         ? {
-            bookId: toStringOrEmpty(post.scripture.bookId),
-            startChapter: toStringOrEmpty(post.scripture.startChapter),
-            startVerse: toStringOrEmpty(post.scripture.startVerse),
-            endChapter: toStringOrEmpty(post.scripture.endChapter),
-            endVerse: toStringOrEmpty(post.scripture.endVerse),
-          }
+          bookId: toStringOrEmpty(post.scripture.bookId),
+          startChapter: toStringOrEmpty(post.scripture.startChapter),
+          startVerse: toStringOrEmpty(post.scripture.startVerse),
+          endChapter: toStringOrEmpty(post.scripture.endChapter),
+          endVerse: toStringOrEmpty(post.scripture.endVerse),
+        }
         : EMPTY_SCRIPTURE_SELECTION,
     )
 
@@ -486,7 +486,7 @@ function GraceSharingContent() {
             value={form.title}
             onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
             placeholder="제목"
-            style={inputStyle}
+            className="form-control"
             required
           />
           <textarea
@@ -494,7 +494,7 @@ function GraceSharingContent() {
             onChange={(event) => setForm((prev) => ({ ...prev, content: event.target.value }))}
             placeholder="은혜를 자유롭게 나눠주세요"
             rows={4}
-            style={{ ...inputStyle, resize: 'vertical' }}
+            className="form-control"
             required
           />
 
@@ -521,7 +521,7 @@ function GraceSharingContent() {
               <select
                 value={effectiveScriptureSelection.bookId}
                 onChange={(event) => handleScriptureBookChange(event.target.value)}
-                style={inputStyle}
+                className="form-control"
               >
                 <option value="">권 선택 안 함</option>
                 {books.map((book) => (
@@ -535,7 +535,7 @@ function GraceSharingContent() {
                 value={effectiveScriptureSelection.startChapter}
                 onChange={(event) => handleScriptureFieldChange('startChapter', event.target.value)}
                 disabled={!effectiveScriptureSelection.bookId || chapterOptions.length === 0}
-                style={inputStyle}
+                className="form-control"
               >
                 <option value="">시작 장</option>
                 {chapterOptions.map((chapter) => (
@@ -549,7 +549,7 @@ function GraceSharingContent() {
                 value={effectiveScriptureSelection.startVerse}
                 onChange={(event) => handleScriptureFieldChange('startVerse', event.target.value)}
                 disabled={!effectiveScriptureSelection.startChapter || startVerseOptions.length === 0}
-                style={inputStyle}
+                className="form-control"
               >
                 <option value="">시작 절</option>
                 {startVerseOptions.map((verse) => (
@@ -563,7 +563,7 @@ function GraceSharingContent() {
                 value={effectiveScriptureSelection.endChapter}
                 onChange={(event) => handleScriptureFieldChange('endChapter', event.target.value)}
                 disabled={!effectiveScriptureSelection.startChapter || endChapterOptions.length === 0}
-                style={inputStyle}
+                className="form-control"
               >
                 <option value="">끝 장</option>
                 {endChapterOptions.map((chapter) => (
@@ -577,7 +577,7 @@ function GraceSharingContent() {
                 value={effectiveScriptureSelection.endVerse}
                 onChange={(event) => handleScriptureFieldChange('endVerse', event.target.value)}
                 disabled={!effectiveScriptureSelection.endChapter || endVerseOptions.length === 0}
-                style={inputStyle}
+                className="form-control"
               >
                 <option value="">끝 절</option>
                 {endVerseOptions.map((verse) => (
@@ -749,14 +749,7 @@ function GraceSharingContent() {
   )
 }
 
-const inputStyle = {
-  width: '100%',
-  border: '1px solid var(--border-color)',
-  borderRadius: 'var(--radius-md)',
-  backgroundColor: 'var(--bg-secondary)',
-  color: 'var(--text-primary)',
-  padding: '0.7rem 0.8rem',
-}
+
 
 function GraceSharing() {
   return <GraceSharingContent />

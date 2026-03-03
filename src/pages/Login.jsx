@@ -73,14 +73,7 @@ function Login() {
               placeholder="example.id"
               autoComplete="username"
               required
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--border-color)',
-                background: 'var(--bg-secondary)',
-                color: 'var(--text-primary)',
-              }}
+              className="form-control"
             />
           </div>
           <div>
@@ -95,14 +88,7 @@ function Login() {
               placeholder="••••••••"
               autoComplete="current-password"
               required
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--border-color)',
-                background: 'var(--bg-secondary)',
-                color: 'var(--text-primary)',
-              }}
+              className="form-control"
             />
           </div>
 

@@ -174,6 +174,7 @@ function Birthdays() {
               onChange={(event) => setContent(event.target.value)}
               placeholder="축하 메시지를 입력해 주세요"
               rows={4}
+              className="form-control"
               required
             />
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>

@@ -100,6 +100,7 @@ function ProfileComplete() {
               value={resolvedForm.displayName}
               onChange={(event) => setForm((prev) => ({ ...prev, displayName: event.target.value }))}
               placeholder="예: 홍길동"
+              className="form-control"
               required
             />
           </div>
@@ -111,6 +112,7 @@ function ProfileComplete() {
               type="date"
               value={resolvedForm.birthDate}
               onChange={(event) => setForm((prev) => ({ ...prev, birthDate: event.target.value }))}
+              className="form-control"
               required
             />
           </div>
@@ -123,6 +125,7 @@ function ProfileComplete() {
               value={resolvedForm.phoneNumber}
               onChange={(event) => setForm((prev) => ({ ...prev, phoneNumber: event.target.value }))}
               placeholder="010-0000-0000"
+              className="form-control"
               required
             />
           </div>
@@ -133,6 +136,7 @@ function ProfileComplete() {
               id="profile-member-type"
               value={resolvedForm.memberType}
               onChange={(event) => setForm((prev) => ({ ...prev, memberType: event.target.value }))}
+              className="form-control"
               required
             >
               <option value="">선택</option>
@@ -148,6 +152,7 @@ function ProfileComplete() {
               id="profile-gender"
               value={resolvedForm.gender}
               onChange={(event) => setForm((prev) => ({ ...prev, gender: event.target.value }))}
+              className="form-control"
               required
             >
               <option value="">선택</option>

@@ -309,9 +309,8 @@ function CalendarDayCell({ day, selectedDateKey, items, onItemClick, onSelectDat
     <div
       role="button"
       tabIndex={0}
-      className={`schedule-day-cell ${
-        day.inCurrentMonth ? '' : 'outside'
-      } ${day.dateKey === selectedDateKey ? 'selected' : ''}`}
+      className={`schedule-day-cell ${day.inCurrentMonth ? '' : 'outside'
+        } ${day.dateKey === selectedDateKey ? 'selected' : ''}`}
       onClick={() => onSelectDate(day.dateKey)}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
@@ -397,6 +396,7 @@ function ScheduleEventForm({ form, setForm, editingEventId, isSubmitting, feedba
             value={form.title}
             onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
             placeholder="예: 여름 수련회"
+            className="form-control"
             required
           />
         </div>
@@ -418,6 +418,7 @@ function ScheduleEventForm({ form, setForm, editingEventId, isSubmitting, feedba
             type="date"
             value={form.startDate}
             onChange={(event) => setForm((prev) => ({ ...prev, startDate: event.target.value }))}
+            className="form-control"
             required
           />
         </div>
@@ -429,6 +430,7 @@ function ScheduleEventForm({ form, setForm, editingEventId, isSubmitting, feedba
             type="date"
             value={form.endDate}
             onChange={(event) => setForm((prev) => ({ ...prev, endDate: event.target.value }))}
+            className="form-control"
             required
           />
         </div>
@@ -442,6 +444,7 @@ function ScheduleEventForm({ form, setForm, editingEventId, isSubmitting, feedba
                 type="time"
                 value={form.startTime}
                 onChange={(event) => setForm((prev) => ({ ...prev, startTime: event.target.value }))}
+                className="form-control"
                 required={!form.isAllDay}
               />
             </div>
@@ -453,6 +456,7 @@ function ScheduleEventForm({ form, setForm, editingEventId, isSubmitting, feedba
                 type="time"
                 value={form.endTime}
                 onChange={(event) => setForm((prev) => ({ ...prev, endTime: event.target.value }))}
+                className="form-control"
                 required={!form.isAllDay}
               />
             </div>
@@ -466,6 +470,7 @@ function ScheduleEventForm({ form, setForm, editingEventId, isSubmitting, feedba
             value={form.location}
             onChange={(event) => setForm((prev) => ({ ...prev, location: event.target.value }))}
             placeholder="예: 본당 2층"
+            className="form-control"
           />
         </div>
 
@@ -477,6 +482,7 @@ function ScheduleEventForm({ form, setForm, editingEventId, isSubmitting, feedba
             value={form.description}
             onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
             placeholder="행사 안내 내용을 입력하세요"
+            className="form-control"
           />
         </div>
 

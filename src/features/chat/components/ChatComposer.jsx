@@ -16,6 +16,7 @@ function ChatComposer({
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={onKeyDown}
         placeholder="메시지를 입력하세요"
+        className="form-control"
         required
         disabled={disabled}
       />

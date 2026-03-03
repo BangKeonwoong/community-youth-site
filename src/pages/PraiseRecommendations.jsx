@@ -199,7 +199,7 @@ function PraiseRecommendationsContent() {
             value={form.title}
             onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
             placeholder="찬양 제목"
-            style={inputStyle}
+            className="form-control"
             required
           />
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.75rem' }}>
@@ -207,14 +207,14 @@ function PraiseRecommendationsContent() {
               value={form.artist}
               onChange={(event) => setForm((prev) => ({ ...prev, artist: event.target.value }))}
               placeholder="아티스트"
-              style={inputStyle}
+              className="form-control"
             />
             <input
               type="url"
               value={form.youtubeUrl}
               onChange={(event) => setForm((prev) => ({ ...prev, youtubeUrl: event.target.value }))}
               placeholder="YouTube 링크 (선택)"
-              style={inputStyle}
+              className="form-control"
             />
           </div>
           <textarea
@@ -222,7 +222,7 @@ function PraiseRecommendationsContent() {
             onChange={(event) => setForm((prev) => ({ ...prev, note: event.target.value }))}
             placeholder="추천 이유"
             rows={3}
-            style={{ ...inputStyle, resize: 'vertical' }}
+            className="form-control"
           />
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
             <button
@@ -357,14 +357,7 @@ function PraiseRecommendationsContent() {
   )
 }
 
-const inputStyle = {
-  width: '100%',
-  border: '1px solid var(--border-color)',
-  borderRadius: 'var(--radius-md)',
-  backgroundColor: 'var(--bg-secondary)',
-  color: 'var(--text-primary)',
-  padding: '0.7rem 0.8rem',
-}
+
 
 function PraiseRecommendations() {
   return <PraiseRecommendationsContent />

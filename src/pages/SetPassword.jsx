@@ -153,14 +153,7 @@ function SetPassword() {
               value={inviteCode}
               onChange={(event) => setInviteCode(event.target.value)}
               placeholder="INVITE-2026-XXXX (첫 관리자만 비워도 됨)"
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--border-color)',
-                background: 'var(--bg-secondary)',
-                color: 'var(--text-primary)',
-              }}
+              className="form-control"
             />
           </div>
 
@@ -175,14 +168,7 @@ function SetPassword() {
               onChange={(event) => setLoginId(event.target.value)}
               placeholder="example.id"
               autoComplete="username"
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--border-color)',
-                background: 'var(--bg-secondary)',
-                color: 'var(--text-primary)',
-              }}
+              className="form-control"
             />
           </div>
 
@@ -197,14 +183,7 @@ function SetPassword() {
               onChange={(event) => setDisplayName(event.target.value)}
               placeholder="홍길동"
               autoComplete="name"
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--border-color)',
-                background: 'var(--bg-secondary)',
-                color: 'var(--text-primary)',
-              }}
+              className="form-control"
             />
           </div>
 
@@ -218,14 +197,7 @@ function SetPassword() {
               value={birthDate}
               onChange={(event) => setBirthDate(event.target.value)}
               max={new Date().toISOString().slice(0, 10)}
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--border-color)',
-                background: 'var(--bg-secondary)',
-                color: 'var(--text-primary)',
-              }}
+              className="form-control"
             />
           </div>
 
@@ -240,14 +212,7 @@ function SetPassword() {
               onChange={(event) => setPhoneNumber(event.target.value)}
               placeholder="010-1234-5678"
               autoComplete="tel"
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--border-color)',
-                background: 'var(--bg-secondary)',
-                color: 'var(--text-primary)',
-              }}
+              className="form-control"
             />
           </div>
 
@@ -259,14 +224,7 @@ function SetPassword() {
               id="invite-member-type"
               value={memberType}
               onChange={(event) => setMemberType(event.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--border-color)',
-                background: 'var(--bg-secondary)',
-                color: 'var(--text-primary)',
-              }}
+              className="form-control"
             >
               <option value="">선택해 주세요</option>
               {MEMBER_TYPE_OPTIONS.map((option) => (
@@ -285,14 +243,7 @@ function SetPassword() {
               id="invite-gender"
               value={gender}
               onChange={(event) => setGender(event.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--border-color)',
-                background: 'var(--bg-secondary)',
-                color: 'var(--text-primary)',
-              }}
+              className="form-control"
             >
               <option value="">선택해 주세요</option>
               <option value="male">남성</option>
@@ -312,14 +263,7 @@ function SetPassword() {
               placeholder="8자 이상"
               autoComplete="new-password"
               minLength={8}
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--border-color)',
-                background: 'var(--bg-secondary)',
-                color: 'var(--text-primary)',
-              }}
+              className="form-control"
             />
           </div>
 
@@ -335,14 +279,7 @@ function SetPassword() {
               placeholder="암호 재입력"
               autoComplete="new-password"
               minLength={8}
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--border-color)',
-                background: 'var(--bg-secondary)',
-                color: 'var(--text-primary)',
-              }}
+              className="form-control"
             />
           </div>
 

@@ -203,7 +203,7 @@ function MeetupsContent() {
             value={form.title}
             onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
             placeholder="모임 제목"
-            style={inputStyle}
+            className="form-control"
             required
           />
           <textarea
@@ -211,7 +211,7 @@ function MeetupsContent() {
             onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
             placeholder="모임 소개"
             rows={3}
-            style={{ ...inputStyle, resize: 'vertical' }}
+            className="form-control"
             required
           />
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.75rem' }}>
@@ -219,13 +219,13 @@ function MeetupsContent() {
               type="datetime-local"
               value={form.eventAt}
               onChange={(event) => setForm((prev) => ({ ...prev, eventAt: event.target.value }))}
-              style={inputStyle}
+              className="form-control"
             />
             <input
               value={form.location}
               onChange={(event) => setForm((prev) => ({ ...prev, location: event.target.value }))}
               placeholder="장소"
-              style={inputStyle}
+              className="form-control"
             />
             <input
               type="number"
@@ -233,7 +233,7 @@ function MeetupsContent() {
               value={form.capacity}
               onChange={(event) => setForm((prev) => ({ ...prev, capacity: event.target.value }))}
               placeholder="정원"
-              style={inputStyle}
+              className="form-control"
             />
           </div>
 
@@ -359,14 +359,7 @@ function MeetupsContent() {
   )
 }
 
-const inputStyle = {
-  width: '100%',
-  border: '1px solid var(--border-color)',
-  borderRadius: 'var(--radius-md)',
-  backgroundColor: 'var(--bg-secondary)',
-  color: 'var(--text-primary)',
-  padding: '0.7rem 0.8rem',
-}
+
 
 function Meetups() {
   return <MeetupsContent />

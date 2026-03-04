@@ -96,3 +96,17 @@ from public.bootstrap_owner_profile(
 - 프론트엔드에는 **`anon` 키만** 사용합니다.
 - `service_role` 키는 RLS를 우회하므로 브라우저/모바일 앱 번들/공개 저장소에 절대 노출하면 안 됩니다.
 - `service_role` 키는 서버 환경(백엔드, 서버리스 함수, CI의 신뢰 구간)에서만 사용합니다.
+
+## Auth 필수 설정 (아이디 기반 가입)
+
+이 프로젝트는 로그인 아이디 기반으로 내부 이메일(`loginId@domain`)을 사용해 가입합니다.
+Supabase 대시보드 또는 Management API에서 아래 값을 권장합니다.
+
+- `mailer_autoconfirm = true`
+  - 가입 확인 메일을 강제하지 않아 `Email rate limit exceeded`를 크게 줄일 수 있습니다.
+- `site_url = https://bangkeonwoong.github.io/community-youth-site/`
+  - 인증 링크/리다이렉트 기본 URL
+
+참고:
+- `rate_limit_email_sent` 상향은 **커스텀 SMTP 설정이 있을 때만** 적용됩니다.
+- 기본 SMTP를 쓰는 경우에는 `mailer_autoconfirm=true`가 실질적인 해결책입니다.

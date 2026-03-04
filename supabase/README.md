@@ -12,6 +12,9 @@
 - `migrations/20260308_login_id_member_type_auth.sql`
 - `migrations/20260309_signup_no_invite_window.sql`
 - `migrations/20260310_chat_membership_and_notifications.sql`
+- `migrations/20260311_notification_dispatch_automation.sql`
+- `migrations/20260312_notification_dispatch_service_role.sql`
+- `migrations/20260313_notification_dispatch_auth_role.sql`
 
 포함 내용:
 - 핵심 테이블 10종
@@ -34,6 +37,9 @@
 - 가입 정책 조회 RPC: `get_signup_policy()`
 - 초대코드 면제 기간 설정 RPC: `set_no_invite_signup_until(until)`
 - 가입 완료 RPC: `complete_signup_profile(code, login_id, display_name, birth_date, phone_number, member_type, gender)`
+- 알림 자동화 설정 RPC:
+  - `get_notification_dispatch_config()`
+  - `set_notification_dispatch_config(dispatch_url, birthday_daily_url, webhook_secret, auth_bearer_token, is_enabled)`
 - 전체 RLS 활성화 및 정책
 
 ## 적용 방법
@@ -161,3 +167,34 @@ Supabase 대시보드 또는 Management API에서 아래 값을 권장합니다.
 참고:
 - `rate_limit_email_sent` 상향은 **커스텀 SMTP 설정이 있을 때만** 적용됩니다.
 - 기본 SMTP를 쓰는 경우에는 `mailer_autoconfirm=true`가 실질적인 해결책입니다.
+
+## 알림 자동화 설정 (웹훅/스케줄러 코드화)
+
+`20260311_notification_dispatch_automation.sql`은 아래를 자동 구성합니다.
+
+- `chat_messages`, `birthday_messages`, `meetups`, `community_events` INSERT 트리거
+  - Edge Function `push-dispatch`로 HTTP 전송
+- `push-birthday-daily` 일일 스케줄(UTC `0 0 * * *`)
+  - `pg_cron` + `pg_net` 기반
+
+보안상 시크릿은 마이그레이션에 하드코딩하지 않으며, **관리자 RPC로 주입**합니다.
+
+```sql
+select public.set_notification_dispatch_config(
+  p_dispatch_function_url => 'https://prqgrmudhnvhzfgxvjoj.supabase.co/functions/v1/push-dispatch',
+  p_birthday_daily_function_url => 'https://prqgrmudhnvhzfgxvjoj.supabase.co/functions/v1/push-birthday-daily',
+  p_webhook_secret => '<PUSH_WEBHOOK_SECRET>',
+  p_auth_bearer_token => null,
+  p_is_enabled => true
+);
+```
+
+검증:
+
+```sql
+select public.get_notification_dispatch_config();
+```
+
+메모:
+- Edge Function을 `--no-verify-jwt`로 배포했다면 `p_auth_bearer_token`은 `null`로 둬도 됩니다.
+- JWT 검증을 켠 배포라면 `p_auth_bearer_token`에 호출 가능한 Bearer 토큰을 넣어야 합니다.

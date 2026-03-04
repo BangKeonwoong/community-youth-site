@@ -72,6 +72,9 @@ VITE_SUPABASE_ANON_KEY=...
 - `supabase/migrations/20260308_login_id_member_type_auth.sql`
 - `supabase/migrations/20260309_signup_no_invite_window.sql`
 - `supabase/migrations/20260310_chat_membership_and_notifications.sql`
+- `supabase/migrations/20260311_notification_dispatch_automation.sql`
+- `supabase/migrations/20260312_notification_dispatch_service_role.sql`
+- `supabase/migrations/20260313_notification_dispatch_auth_role.sql`
 
 적용/운영 가이드는 `supabase/README.md`를 참고하세요.
 

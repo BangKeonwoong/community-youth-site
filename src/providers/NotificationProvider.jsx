@@ -1,5 +1,5 @@
 import { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getCurrentProfile, getSupabaseStatus } from '../features/profile/api'
 import {
   deactivateWebPushSubscription,
@@ -109,6 +109,7 @@ function toSubscriptionPayload(subscription) {
 
 function NotificationProvider({ children }) {
   const supabaseStatus = useMemo(() => getSupabaseStatus(), [])
+  const queryClient = useQueryClient()
   const [toasts, setToasts] = useState([])
 
   const toastTimersRef = useRef(new Map())
@@ -130,8 +131,13 @@ function NotificationProvider({ children }) {
     staleTime: 30 * 1000,
   })
 
+  const roomMembershipQueryKey = useMemo(
+    () => [...MY_CHAT_ROOM_IDS_QUERY_KEY, profileId || 'anonymous'],
+    [profileId],
+  )
+
   const roomIdsQuery = useQuery({
-    queryKey: [...MY_CHAT_ROOM_IDS_QUERY_KEY, profileId || 'anonymous'],
+    queryKey: roomMembershipQueryKey,
     queryFn: () => listMyJoinedRoomIds(profileId),
     enabled: supabaseStatus.configured && isRealProfile && Boolean(profileId),
     staleTime: 30 * 1000,
@@ -306,6 +312,38 @@ function NotificationProvider({ children }) {
   }, [isRealProfile, profileId, settings.browserEnabled, supabaseStatus.configured])
 
   useEffect(() => {
+    if (!supabaseStatus.configured || !isRealProfile || !profileId || !supabase) {
+      return undefined
+    }
+
+    const channel = supabase
+      .channel(`notif-chat-membership:${profileId}:${Date.now()}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'chat_room_members',
+        },
+        (payload) => {
+          const newUserId = payload?.new?.user_id || null
+          const oldUserId = payload?.old?.user_id || null
+
+          if (newUserId !== profileId && oldUserId !== profileId) {
+            return
+          }
+
+          queryClient.invalidateQueries({ queryKey: roomMembershipQueryKey, exact: true })
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [isRealProfile, profileId, queryClient, roomMembershipQueryKey, supabaseStatus.configured])
+
+  useEffect(() => {
     if (!supabaseStatus.configured || !isRealProfile || !profileId || !supabase || !settings.chatEnabled) {
       return undefined
     }
@@ -340,7 +378,14 @@ function NotificationProvider({ children }) {
   }, [dispatchNotification, isRealProfile, joinedRoomIdSet, profileId, settings.chatEnabled, supabaseStatus.configured])
 
   useEffect(() => {
-    if (!supabaseStatus.configured || !isRealProfile || !profileId || !supabase || !settings.meetupEnabled) {
+    if (
+      !supabaseStatus.configured ||
+      !isRealProfile ||
+      !profileId ||
+      !supabase ||
+      !settings.meetupEnabled ||
+      !settings.scheduleEnabled
+    ) {
       return undefined
     }
 
@@ -371,7 +416,14 @@ function NotificationProvider({ children }) {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [dispatchNotification, isRealProfile, profileId, settings.meetupEnabled, supabaseStatus.configured])
+  }, [
+    dispatchNotification,
+    isRealProfile,
+    profileId,
+    settings.meetupEnabled,
+    settings.scheduleEnabled,
+    supabaseStatus.configured,
+  ])
 
   useEffect(() => {
     if (!supabaseStatus.configured || !isRealProfile || !profileId || !supabase || !settings.scheduleEnabled) {

@@ -35,32 +35,41 @@ supabase functions deploy push-dispatch
 supabase functions deploy push-birthday-daily
 ```
 
-## 3) Configure DB Webhooks -> `push-dispatch`
+## 3) Apply DB Automation Migration
 
-Create DB webhooks for these tables/events and point them to `push-dispatch`:
+```bash
+supabase db push
+```
 
-- `public.chat_messages`
-- `public.birthday_messages`
-- `public.meetups`
-- `public.community_events`
+`20260311_notification_dispatch_automation.sql` does the following automatically:
 
-Each webhook request must include the shared secret header:
+- `chat_messages`, `birthday_messages`, `meetups`, `community_events` INSERT trigger
+  -> call `push-dispatch`
+- daily cron (`0 0 * * *` UTC)
+  -> call `push-birthday-daily`
 
-- `x-push-webhook-secret: <PUSH_WEBHOOK_SECRET>`
+## 4) Set Notification Dispatch Config (Admin RPC)
 
-`push-dispatch` expects payloads containing at least:
+After migration, inject webhook auth/config using admin account:
 
-- `table`
-- `record`
+```sql
+select public.set_notification_dispatch_config(
+  p_dispatch_function_url => 'https://<project-ref>.supabase.co/functions/v1/push-dispatch',
+  p_birthday_daily_function_url => 'https://<project-ref>.supabase.co/functions/v1/push-birthday-daily',
+  p_webhook_secret => '<PUSH_WEBHOOK_SECRET>',
+  p_auth_bearer_token => null,
+  p_is_enabled => true
+);
+```
 
-(standard Supabase DB webhook shape is supported).
+Check:
 
-## 4) Scheduler Cron -> `push-birthday-daily`
+```sql
+select public.get_notification_dispatch_config();
+```
 
-Create a scheduled invocation for `push-birthday-daily` at **UTC 00:00** daily.
-
-- Cron: `0 0 * * *` (UTC)
-- Include header: `x-push-webhook-secret: <PUSH_WEBHOOK_SECRET>`
+`20260312` + `20260313` 마이그레이션 적용 후에는
+`service_role` JWT 컨텍스트에서도 위 RPC를 호출할 수 있습니다.
 
 The function computes birthdays in **Asia/Seoul (KST)** and deduplicates once-per-day delivery using:
 

@@ -18,6 +18,7 @@ import { getCurrentProfile, getSupabaseStatus } from '../profile/api'
 const PROFILE_QUERY_KEY = ['profile']
 const CHAT_ROOMS_QUERY_KEY = ['chat-rooms']
 const CHAT_MESSAGES_QUERY_KEY = ['chat-messages']
+const MY_CHAT_ROOM_IDS_QUERY_KEY = ['chat-memberships', 'my-room-ids']
 const UNKNOWN_AUTHOR_NAME = '이름 미상'
 const DEFAULT_SEND_ERROR_MESSAGE = '메시지 전송에 실패했습니다.'
 
@@ -53,6 +54,10 @@ function getChatMessagesQueryKey(roomId) {
 
 function getScopedRoomsQueryKey(profileId) {
   return [...CHAT_ROOMS_QUERY_KEY, profileId || 'anonymous']
+}
+
+function getScopedMembershipQueryKey(profileId) {
+  return [...MY_CHAT_ROOM_IDS_QUERY_KEY, profileId || 'anonymous']
 }
 
 function getScopedMessagesQueryKey(roomId, profileId) {
@@ -265,6 +270,7 @@ export function useChatPage({ selectedRoomId = null, autoSelectFirstRoom = true 
   const isEnabled = supabaseStatus.configured && profileQuery.isSuccess
   const profileId = profileQuery.data?.id || null
   const roomsQueryKey = useMemo(() => getScopedRoomsQueryKey(profileId), [profileId])
+  const membershipQueryKey = useMemo(() => getScopedMembershipQueryKey(profileId), [profileId])
 
   const roomsQuery = useQuery({
     queryKey: roomsQueryKey,
@@ -312,6 +318,7 @@ export function useChatPage({ selectedRoomId = null, autoSelectFirstRoom = true 
     mutationFn: (payload) => createChatRoom(payload, profileQuery.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: roomsQueryKey, exact: true })
+      queryClient.invalidateQueries({ queryKey: membershipQueryKey, exact: true })
     },
   })
 
@@ -320,6 +327,7 @@ export function useChatPage({ selectedRoomId = null, autoSelectFirstRoom = true 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CHAT_ROOMS_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: CHAT_MESSAGES_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: membershipQueryKey, exact: true })
     },
   })
 
@@ -355,6 +363,7 @@ export function useChatPage({ selectedRoomId = null, autoSelectFirstRoom = true 
     onSuccess: (_result, roomId) => {
       const safeRoomId = normalizeRoomId(roomId)
       queryClient.invalidateQueries({ queryKey: roomsQueryKey, exact: true })
+      queryClient.invalidateQueries({ queryKey: membershipQueryKey, exact: true })
       if (safeRoomId) {
         queryClient.invalidateQueries({ queryKey: getScopedMessagesQueryKey(safeRoomId, profileId), exact: true })
       }
@@ -393,6 +402,7 @@ export function useChatPage({ selectedRoomId = null, autoSelectFirstRoom = true 
     onSuccess: (_result, roomId) => {
       const safeRoomId = normalizeRoomId(roomId)
       queryClient.invalidateQueries({ queryKey: roomsQueryKey, exact: true })
+      queryClient.invalidateQueries({ queryKey: membershipQueryKey, exact: true })
       if (safeRoomId) {
         queryClient.removeQueries({ queryKey: getScopedMessagesQueryKey(safeRoomId, profileId), exact: true })
       }

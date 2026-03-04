@@ -330,7 +330,7 @@ async function resolveDispatch(
       actorId,
       excludeActor: true,
       recipientIds,
-      requiredSettings: ["browser_enabled", "chat_enabled", "message_enabled"],
+      requiredSettings: ["browser_enabled", "chat_enabled"],
       notificationType: "chat_message",
       pushPayload: {
         title: "New chat message",
@@ -390,7 +390,7 @@ async function resolveDispatch(
     return {
       table,
       actorId,
-      excludeActor: false,
+      excludeActor: true,
       recipientIds,
       requiredSettings:
         table === "meetups"

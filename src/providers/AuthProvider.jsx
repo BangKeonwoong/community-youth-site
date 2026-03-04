@@ -9,8 +9,9 @@ import {
 
 const LOGIN_ID_PATTERN = /^[a-z0-9._-]{4,20}$/
 const MEMBER_TYPE_SET = new Set(['pastor', 'teacher', 'student'])
+const SIGNUP_INVALID_EMAIL_PATTERN = /Email address ".+" is invalid/i
 const AUTH_LOGIN_DOMAIN = String(
-  import.meta.env.VITE_AUTH_LOGIN_DOMAIN || 'example.com'
+  import.meta.env.VITE_AUTH_LOGIN_DOMAIN || 'gmail.com'
 )
   .trim()
   .toLowerCase()
@@ -29,6 +30,34 @@ function normalizeLoginId(value) {
 
 function normalizeMemberType(value) {
   return String(value ?? '').trim().toLowerCase()
+}
+
+function normalizeAuthDomain(value) {
+  return String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/^@+/, '')
+}
+
+function buildAuthEmail(loginId, domain) {
+  const normalizedDomain = normalizeAuthDomain(domain)
+  if (!normalizedDomain) {
+    return ''
+  }
+  return `${loginId}@${normalizedDomain}`
+}
+
+function getSignUpEmailCandidates(loginId) {
+  return Array.from(
+    new Set([
+      buildAuthEmail(loginId, AUTH_LOGIN_DOMAIN),
+      buildAuthEmail(loginId, 'gmail.com'),
+    ].filter(Boolean)),
+  )
+}
+
+function isInvalidSignUpEmailError(message) {
+  return SIGNUP_INVALID_EMAIL_PATTERN.test(String(message || ''))
 }
 
 function toSimpleError(message) {
@@ -50,6 +79,10 @@ function mapAuthErrorMessage(rawMessage, hasInviteCode) {
 
   if (message.includes('Email rate limit exceeded')) {
     return '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.'
+  }
+
+  if (message.includes('Email address') && message.includes('is invalid')) {
+    return '가입용 이메일 형식 생성에 실패했습니다. 관리자에게 문의해 주세요.'
   }
 
   if (message.includes('BOOTSTRAP_ALREADY_COMPLETED')) {
@@ -265,31 +298,52 @@ export function AuthProvider({ children }) {
       return { data: null, error: toSimpleError(message) }
     }
 
-    const signUpResult = await supabase.auth.signUp({
-      email: `${normalizedLoginId}@${AUTH_LOGIN_DOMAIN}`,
-      password,
-      options: {
-        data: {
-          invite_code: normalizedInviteCode,
-          login_id: normalizedLoginId,
-          display_name: normalizedDisplayName,
-          birth_date: normalizedBirthDate,
-          phone_number: normalizedPhoneNumber,
-          gender: normalizedGender,
-          member_type: normalizedMemberType,
-        },
-      },
-    })
+    const signUpEmailCandidates = getSignUpEmailCandidates(normalizedLoginId)
+    let signUpEmail = signUpEmailCandidates[0] || buildAuthEmail(normalizedLoginId, 'gmail.com')
+    let signUpResult = null
+    let lastSignUpError = null
 
-    if (signUpResult.error) {
-      setAuthError(mapAuthErrorMessage(signUpResult.error.message, Boolean(normalizedInviteCode)))
-      return signUpResult
+    for (const candidateEmail of signUpEmailCandidates) {
+      const candidateResult = await supabase.auth.signUp({
+        email: candidateEmail,
+        password,
+        options: {
+          data: {
+            invite_code: normalizedInviteCode,
+            login_id: normalizedLoginId,
+            display_name: normalizedDisplayName,
+            birth_date: normalizedBirthDate,
+            phone_number: normalizedPhoneNumber,
+            gender: normalizedGender,
+            member_type: normalizedMemberType,
+          },
+        },
+      })
+
+      if (!candidateResult.error) {
+        signUpEmail = candidateEmail
+        signUpResult = candidateResult
+        break
+      }
+
+      lastSignUpError = candidateResult.error
+
+      if (!isInvalidSignUpEmailError(candidateResult.error.message)) {
+        setAuthError(mapAuthErrorMessage(candidateResult.error.message, Boolean(normalizedInviteCode)))
+        return candidateResult
+      }
+    }
+
+    if (!signUpResult) {
+      const message = mapAuthErrorMessage(lastSignUpError?.message, Boolean(normalizedInviteCode))
+      setAuthError(message)
+      return { data: null, error: toSimpleError(message) }
     }
 
     let activeSession = signUpResult.data.session
     if (!activeSession) {
       const signInResult = await supabase.auth.signInWithPassword({
-        email: `${normalizedLoginId}@${AUTH_LOGIN_DOMAIN}`,
+        email: signUpEmail,
         password,
       })
       if (!signInResult.error) {

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Bell, Smartphone, Volume2, Calendar, Users, MessageCircle, MessageSquare, Cake, Gift } from 'lucide-react'
 import ErrorBanner from '../components/common/ErrorBanner'
 import LoadingState from '../components/common/LoadingState'
 import { getCurrentProfile, updateCurrentProfileDetails } from '../features/profile/api'
@@ -239,100 +240,190 @@ function ProfileComplete() {
 
         <div className="glass profile-complete-card">
           <h2 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '0.35rem' }}>알림 설정</h2>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
             새 글/메시지/채팅 알림 수신 범위를 개인별로 설정할 수 있습니다.
           </p>
 
           <ErrorBanner message={notificationSettingsQuery.error?.message || ''} />
           <ErrorBanner message={notificationFeedback} />
 
-          <form onSubmit={handleSubmitNotificationSettings} style={{ display: 'grid', gap: '0.85rem' }}>
-            <div className="profile-form-grid">
-              <label className="profile-form-field" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                <input
-                  type="checkbox"
-                  checked={resolvedNotificationSettings.inAppEnabled}
-                  onChange={(event) => handleToggleNotificationSetting('inAppEnabled', event.target.checked)}
-                />
-                <span>인앱 알림</span>
-              </label>
+          <form onSubmit={handleSubmitNotificationSettings} className="settings-group">
 
-              <label className="profile-form-field" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                <input
-                  type="checkbox"
-                  checked={resolvedNotificationSettings.browserEnabled}
-                  onChange={(event) => handleToggleNotificationSetting('browserEnabled', event.target.checked)}
-                />
-                <span>브라우저 알림</span>
-              </label>
+            {/* 시스템 알림 컴포넌트 */}
+            <div>
+              <h3 className="settings-section-title">시스템 및 기기 알림</h3>
 
-              <label className="profile-form-field" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                <input
-                  type="checkbox"
-                  checked={resolvedNotificationSettings.soundEnabled}
-                  onChange={(event) => handleToggleNotificationSetting('soundEnabled', event.target.checked)}
-                />
-                <span>알림 소리</span>
-              </label>
+              <div className="settings-item">
+                <div className="settings-item-info">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <Smartphone size={16} className="text-secondary" />
+                    <span className="settings-item-title">인앱 알림</span>
+                  </div>
+                  <span className="settings-item-desc">앱 화면 내 상단 알림 배너 표시</span>
+                </div>
+                <label className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    checked={resolvedNotificationSettings.inAppEnabled}
+                    onChange={(event) => handleToggleNotificationSetting('inAppEnabled', event.target.checked)}
+                  />
+                  <span className="toggle-slider"></span>
+                </label>
+              </div>
 
-              <label className="profile-form-field" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                <input
-                  type="checkbox"
-                  checked={resolvedNotificationSettings.scheduleEnabled}
-                  onChange={(event) => handleToggleNotificationSetting('scheduleEnabled', event.target.checked)}
-                />
-                <span>행사 일정 알림</span>
-              </label>
+              <div className="settings-item">
+                <div className="settings-item-info">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <Bell size={16} className="text-secondary" />
+                    <span className="settings-item-title">브라우저 푸시 알림</span>
+                  </div>
+                  <span className="settings-item-desc">기기별 브라우저 푸시 메시지 수신 (권한 필요)</span>
+                </div>
+                <label className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    checked={resolvedNotificationSettings.browserEnabled}
+                    onChange={(event) => handleToggleNotificationSetting('browserEnabled', event.target.checked)}
+                  />
+                  <span className="toggle-slider"></span>
+                </label>
+              </div>
 
-              <label className="profile-form-field" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                <input
-                  type="checkbox"
-                  checked={resolvedNotificationSettings.meetupEnabled}
-                  onChange={(event) => handleToggleNotificationSetting('meetupEnabled', event.target.checked)}
-                />
-                <span>벙개 일정 알림</span>
-              </label>
-
-              <label className="profile-form-field" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                <input
-                  type="checkbox"
-                  checked={resolvedNotificationSettings.chatEnabled}
-                  onChange={(event) => handleToggleNotificationSetting('chatEnabled', event.target.checked)}
-                />
-                <span>채팅 알림</span>
-              </label>
-
-              <label className="profile-form-field" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                <input
-                  type="checkbox"
-                  checked={resolvedNotificationSettings.messageEnabled}
-                  onChange={(event) => handleToggleNotificationSetting('messageEnabled', event.target.checked)}
-                />
-                <span>메시지 알림</span>
-              </label>
-
-              <label className="profile-form-field" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                <input
-                  type="checkbox"
-                  checked={resolvedNotificationSettings.birthdayMessageEnabled}
-                  onChange={(event) => handleToggleNotificationSetting('birthdayMessageEnabled', event.target.checked)}
-                />
-                <span>생일 메시지 알림</span>
-              </label>
-
-              <label className="profile-form-field" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                <input
-                  type="checkbox"
-                  checked={resolvedNotificationSettings.birthdayDailyEnabled}
-                  onChange={(event) => handleToggleNotificationSetting('birthdayDailyEnabled', event.target.checked)}
-                />
-                <span>오늘 생일 알림</span>
-              </label>
+              <div className="settings-item">
+                <div className="settings-item-info">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <Volume2 size={16} className="text-secondary" />
+                    <span className="settings-item-title">알림 소리</span>
+                  </div>
+                  <span className="settings-item-desc">알림 발생 시 소리 재생</span>
+                </div>
+                <label className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    checked={resolvedNotificationSettings.soundEnabled}
+                    onChange={(event) => handleToggleNotificationSetting('soundEnabled', event.target.checked)}
+                  />
+                  <span className="toggle-slider"></span>
+                </label>
+              </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            {/* 서비스 알림 컴포넌트 */}
+            <div style={{ marginTop: '0.5rem' }}>
+              <h3 className="settings-section-title">서비스 수신 항목</h3>
+
+              <div className="settings-item">
+                <div className="settings-item-info">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <Calendar size={16} className="text-secondary" />
+                    <span className="settings-item-title">행사 일정 알림</span>
+                  </div>
+                  <span className="settings-item-desc">새로운 공식 행사 등록 시 안내</span>
+                </div>
+                <label className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    checked={resolvedNotificationSettings.scheduleEnabled}
+                    onChange={(event) => handleToggleNotificationSetting('scheduleEnabled', event.target.checked)}
+                  />
+                  <span className="toggle-slider"></span>
+                </label>
+              </div>
+
+              <div className="settings-item">
+                <div className="settings-item-info">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <Users size={16} className="text-secondary" />
+                    <span className="settings-item-title">벙개 일정 알림</span>
+                  </div>
+                  <span className="settings-item-desc">새로운 벙개 모임 생성 시 안내</span>
+                </div>
+                <label className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    checked={resolvedNotificationSettings.meetupEnabled}
+                    onChange={(event) => handleToggleNotificationSetting('meetupEnabled', event.target.checked)}
+                  />
+                  <span className="toggle-slider"></span>
+                </label>
+              </div>
+
+              <div className="settings-item">
+                <div className="settings-item-info">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <MessageCircle size={16} className="text-secondary" />
+                    <span className="settings-item-title">채팅 알림</span>
+                  </div>
+                  <span className="settings-item-desc">참여 중인 채팅방의 새 메시지 수신</span>
+                </div>
+                <label className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    checked={resolvedNotificationSettings.chatEnabled}
+                    onChange={(event) => handleToggleNotificationSetting('chatEnabled', event.target.checked)}
+                  />
+                  <span className="toggle-slider"></span>
+                </label>
+              </div>
+
+              <div className="settings-item">
+                <div className="settings-item-info">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <MessageSquare size={16} className="text-secondary" />
+                    <span className="settings-item-title">1:1 메시지 알림</span>
+                  </div>
+                  <span className="settings-item-desc">개인 다이렉트 메시지 수신</span>
+                </div>
+                <label className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    checked={resolvedNotificationSettings.messageEnabled}
+                    onChange={(event) => handleToggleNotificationSetting('messageEnabled', event.target.checked)}
+                  />
+                  <span className="toggle-slider"></span>
+                </label>
+              </div>
+
+              <div className="settings-item">
+                <div className="settings-item-info">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <Gift size={16} className="text-secondary" />
+                    <span className="settings-item-title">내 생일 축하 메시지 알림</span>
+                  </div>
+                  <span className="settings-item-desc">내 생일 롤링페이퍼에 새 메시지가 달렸을 때</span>
+                </div>
+                <label className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    checked={resolvedNotificationSettings.birthdayMessageEnabled}
+                    onChange={(event) => handleToggleNotificationSetting('birthdayMessageEnabled', event.target.checked)}
+                  />
+                  <span className="toggle-slider"></span>
+                </label>
+              </div>
+
+              <div className="settings-item">
+                <div className="settings-item-info">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <Cake size={16} className="text-secondary" />
+                    <span className="settings-item-title">오늘의 생일자 알림</span>
+                  </div>
+                  <span className="settings-item-desc">생일을 맞은 다른 멤버 안내 (아침 9시)</span>
+                </div>
+                <label className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    checked={resolvedNotificationSettings.birthdayDailyEnabled}
+                    onChange={(event) => handleToggleNotificationSetting('birthdayDailyEnabled', event.target.checked)}
+                  />
+                  <span className="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-color)' }}>
               <button type="submit" className="btn-primary" disabled={updateNotificationMutation.isPending}>
-                {updateNotificationMutation.isPending ? '저장 중...' : '알림 설정 저장'}
+                {updateNotificationMutation.isPending ? '저장 중...' : '변경 사항 저장'}
               </button>
             </div>
           </form>

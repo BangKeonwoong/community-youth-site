@@ -254,104 +254,106 @@ function PraiseRecommendationsContent() {
         </div>
       ) : null}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
-        {recommendations.map((recommendation) => {
-          const canManage = canManagePost(profile, recommendation.authorId)
+      <div className="praise-recommendations-grid-wrap">
+        <div className="praise-recommendations-grid">
+          {recommendations.map((recommendation) => {
+            const canManage = canManagePost(profile, recommendation.authorId)
 
-          return (
-            <article
-              key={recommendation.id}
-              className="glass"
-              style={{ overflow: 'hidden', borderRadius: 'var(--radius-lg)', display: 'flex', flexDirection: 'column' }}
-            >
-              <div
-                style={{
-                  width: '100%',
-                  aspectRatio: '16 / 9',
-                  backgroundColor: 'var(--bg-tertiary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  overflow: 'hidden',
-                }}
+            return (
+              <article
+                key={recommendation.id}
+                className="glass praise-recommendation-card"
+                style={{ overflow: 'hidden', borderRadius: 'var(--radius-lg)', display: 'flex', flexDirection: 'column' }}
               >
-                {recommendation.thumbnailUrl ? (
-                  <img
-                    src={recommendation.thumbnailUrl}
-                    alt={`${recommendation.title} 썸네일`}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
-                ) : (
-                  <span style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>Thumbnail</span>
-                )}
-              </div>
-
-              <div style={{ padding: '1rem', display: 'grid', gap: '0.5rem' }}>
-                <h3 style={{ fontSize: '1.05rem', fontWeight: 600 }}>{recommendation.title}</h3>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                  {recommendation.artist || '아티스트 미정'} • {recommendation.authorName}
-                </p>
-                <p style={{ color: 'var(--text-primary)', opacity: 0.9, whiteSpace: 'pre-wrap', fontSize: '0.92rem' }}>
-                  {recommendation.note || '추천 코멘트가 없습니다.'}
-                </p>
-
-                {recommendation.youtubeUrl ? (
-                  <a
-                    href={recommendation.youtubeUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{ color: 'var(--accent-primary)', fontSize: '0.85rem', fontWeight: 600 }}
-                  >
-                    유튜브로 듣기
-                  </a>
-                ) : null}
-
-                <p style={{ color: 'var(--text-tertiary)', fontSize: '0.75rem' }}>
-                  등록일: {formatDate(recommendation.createdAt)}
-                </p>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.35rem', flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    onClick={() => handleToggleLike(recommendation.id)}
-                    disabled={isSubmitting || !supabaseStatus.configured}
-                    style={{
-                      color: recommendation.likedByMe ? 'var(--accent-primary)' : 'var(--text-secondary)',
-                      fontWeight: 600,
-                    }}
-                  >
-                    {recommendation.likedByMe ? '💜' : '🤍'} 좋아요 {recommendation.likeCount}
-                  </button>
-
-                  <div style={{ display: 'flex', gap: '0.35rem' }}>
-                    {canManage ? (
-                      <button
-                        className="btn-secondary"
-                        type="button"
-                        onClick={() => openEditForm(recommendation)}
-                        disabled={isSubmitting}
-                      >
-                        수정
-                      </button>
-                    ) : null}
-                    {canManage ? (
-                      <button
-                        className="btn-secondary"
-                        type="button"
-                        onClick={() => handleDelete(recommendation.id)}
-                        disabled={isSubmitting}
-                      >
-                        삭제
-                      </button>
-                    ) : null}
-                  </div>
+                <div
+                  style={{
+                    width: '100%',
+                    aspectRatio: '16 / 9',
+                    backgroundColor: 'var(--bg-tertiary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {recommendation.thumbnailUrl ? (
+                    <img
+                      src={recommendation.thumbnailUrl}
+                      alt={`${recommendation.title} 썸네일`}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  ) : (
+                    <span style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>Thumbnail</span>
+                  )}
                 </div>
 
-                <PostComments postType="praise" postId={recommendation.id} />
-              </div>
-            </article>
-          )
-        })}
+                <div style={{ padding: '1rem', display: 'grid', gap: '0.5rem' }}>
+                  <h3 style={{ fontSize: '1.05rem', fontWeight: 600 }}>{recommendation.title}</h3>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                    {recommendation.artist || '아티스트 미정'} • {recommendation.authorName}
+                  </p>
+                  <p style={{ color: 'var(--text-primary)', opacity: 0.9, whiteSpace: 'pre-wrap', fontSize: '0.92rem' }}>
+                    {recommendation.note || '추천 코멘트가 없습니다.'}
+                  </p>
+
+                  {recommendation.youtubeUrl ? (
+                    <a
+                      href={recommendation.youtubeUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ color: 'var(--accent-primary)', fontSize: '0.85rem', fontWeight: 600 }}
+                    >
+                      유튜브로 듣기
+                    </a>
+                  ) : null}
+
+                  <p style={{ color: 'var(--text-tertiary)', fontSize: '0.75rem' }}>
+                    등록일: {formatDate(recommendation.createdAt)}
+                  </p>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.35rem', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleLike(recommendation.id)}
+                      disabled={isSubmitting || !supabaseStatus.configured}
+                      style={{
+                        color: recommendation.likedByMe ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {recommendation.likedByMe ? '💜' : '🤍'} 좋아요 {recommendation.likeCount}
+                    </button>
+
+                    <div style={{ display: 'flex', gap: '0.35rem' }}>
+                      {canManage ? (
+                        <button
+                          className="btn-secondary"
+                          type="button"
+                          onClick={() => openEditForm(recommendation)}
+                          disabled={isSubmitting}
+                        >
+                          수정
+                        </button>
+                      ) : null}
+                      {canManage ? (
+                        <button
+                          className="btn-secondary"
+                          type="button"
+                          onClick={() => handleDelete(recommendation.id)}
+                          disabled={isSubmitting}
+                        >
+                          삭제
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <PostComments postType="praise" postId={recommendation.id} />
+                </div>
+              </article>
+            )
+          })}
+        </div>
       </div>
     </div>
   )

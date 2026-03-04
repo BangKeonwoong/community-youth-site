@@ -11,6 +11,7 @@
 - `migrations/20260307_grace_scripture_anonymous.sql`
 - `migrations/20260308_login_id_member_type_auth.sql`
 - `migrations/20260309_signup_no_invite_window.sql`
+- `migrations/20260310_chat_membership_and_notifications.sql`
 
 포함 내용:
 - 핵심 테이블 10종

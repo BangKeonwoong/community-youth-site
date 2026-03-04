@@ -57,6 +57,7 @@ function normalizeMessageRow(row) {
     receiverName: normalizeName(row?.receiver?.display_name ?? row?.receiver_name),
     createdAt: row?.created_at ?? row?.createdAt ?? null,
     readAt: row?.read_at ?? row?.readAt ?? null,
+    messageContext: String(row?.message_context ?? row?.messageContext ?? 'birthday'),
     isRead: Boolean(row?.read_at ?? row?.readAt),
   }
 }
@@ -128,7 +129,7 @@ export async function listMessages({ scope = 'inbox', profileId, includeAll = fa
   let query = supabase
     .from(BIRTHDAY_MESSAGES_TABLE)
     .select(
-      'id, content, created_at, read_at, sender_id, receiver_id, sender:sender_id(id, display_name), receiver:receiver_id(id, display_name)',
+      'id, content, message_context, created_at, read_at, sender_id, receiver_id, sender:sender_id(id, display_name), receiver:receiver_id(id, display_name)',
     )
     .order('created_at', { ascending: false })
 
@@ -190,9 +191,10 @@ export async function sendMessage(payload, profile) {
       sender_id: profile.id,
       receiver_id: receiverId,
       content,
+      message_context: 'direct',
     })
     .select(
-      'id, content, created_at, read_at, sender_id, receiver_id, sender:sender_id(id, display_name), receiver:receiver_id(id, display_name)',
+      'id, content, message_context, created_at, read_at, sender_id, receiver_id, sender:sender_id(id, display_name), receiver:receiver_id(id, display_name)',
     )
     .single()
 

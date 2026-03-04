@@ -3,7 +3,10 @@ import { requireSupabaseConfigured } from '../profile/api'
 
 const CHAT_ROOMS_TABLE = import.meta.env.VITE_SUPABASE_CHAT_ROOMS_TABLE || 'chat_rooms'
 const CHAT_MESSAGES_TABLE = import.meta.env.VITE_SUPABASE_CHAT_MESSAGES_TABLE || 'chat_messages'
+const CHAT_ROOM_MEMBERS_TABLE = import.meta.env.VITE_SUPABASE_CHAT_ROOM_MEMBERS_TABLE || 'chat_room_members'
 const PROFILE_TABLE = import.meta.env.VITE_SUPABASE_PROFILE_TABLE || 'profiles'
+const MEMBERSHIP_USER_FIELD_CANDIDATES = ['user_id', 'profile_id']
+const MEMBERSHIP_ROLE_FIELD_CANDIDATES = ['role', 'member_role']
 
 function toError(error, fallbackMessage) {
   if (!error) {
@@ -58,6 +61,73 @@ function assertMessageContent(content) {
   return text
 }
 
+function normalizeRoomId(roomId) {
+  const value = Number(roomId)
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : null
+}
+
+function normalizeMemberRole(role) {
+  const text = String(role ?? '')
+    .trim()
+    .toLowerCase()
+
+  return text || null
+}
+
+function resolveMembershipUserId(row) {
+  return row?.user_id ?? row?.profile_id ?? row?.member_id ?? null
+}
+
+function resolveMembershipRole(row) {
+  return normalizeMemberRole(row?.role ?? row?.member_role ?? row?.memberRole)
+}
+
+function isMissingColumnError(error) {
+  if (!error) {
+    return false
+  }
+
+  if (error.code === '42703' || error.code === 'PGRST204') {
+    return true
+  }
+
+  const message = String(error.message || '').toLowerCase()
+  return message.includes('column') && message.includes('does not exist')
+}
+
+function isDuplicateMembershipError(error) {
+  if (!error) {
+    return false
+  }
+
+  if (error.code === '23505') {
+    return true
+  }
+
+  return String(error.message || '').toLowerCase().includes('duplicate key')
+}
+
+function buildMembershipInsertPayloads({ roomId, profileId, role }) {
+  const payloads = []
+
+  MEMBERSHIP_USER_FIELD_CANDIDATES.forEach((userField) => {
+    MEMBERSHIP_ROLE_FIELD_CANDIDATES.forEach((roleField) => {
+      payloads.push({
+        room_id: roomId,
+        [userField]: profileId,
+        [roleField]: role,
+      })
+    })
+
+    payloads.push({
+      room_id: roomId,
+      [userField]: profileId,
+    })
+  })
+
+  return payloads
+}
+
 async function fetchProfileNameMap(profileIds) {
   const ids = [...new Set((profileIds || []).filter(Boolean))]
   if (ids.length === 0) {
@@ -78,8 +148,56 @@ async function fetchProfileNameMap(profileIds) {
   return map
 }
 
-function normalizeChatRoom(row, profileMap, latestMessageMap, currentProfileId) {
-  const latestMessage = latestMessageMap.get(row.id)
+async function fetchRoomMembershipMeta(roomIds, currentProfileId) {
+  const safeRoomIds = [...new Set((roomIds || []).map((roomId) => normalizeRoomId(roomId)).filter(Boolean))]
+  if (safeRoomIds.length === 0) {
+    return {
+      memberCountMap: new Map(),
+      currentMemberRoleMap: new Map(),
+    }
+  }
+
+  const { data, error } = await supabase
+    .from(CHAT_ROOM_MEMBERS_TABLE)
+    .select('*')
+    .in('room_id', safeRoomIds)
+
+  if (error) {
+    throw toError(error, '채팅방 멤버 정보를 불러오지 못했습니다.')
+  }
+
+  const memberCountMap = new Map()
+  const currentMemberRoleMap = new Map()
+
+  ;(data || []).forEach((row) => {
+    const roomId = normalizeRoomId(row?.room_id)
+    if (!roomId) {
+      return
+    }
+
+    memberCountMap.set(roomId, (memberCountMap.get(roomId) || 0) + 1)
+
+    const memberId = resolveMembershipUserId(row)
+    if (currentProfileId && memberId === currentProfileId && !currentMemberRoleMap.has(roomId)) {
+      currentMemberRoleMap.set(roomId, resolveMembershipRole(row) || 'member')
+    }
+  })
+
+  return {
+    memberCountMap,
+    currentMemberRoleMap,
+  }
+}
+
+function normalizeChatRoom(row, profileMap, latestMessageMap, currentProfileId, membershipMeta) {
+  const roomId = normalizeRoomId(row?.id)
+  const latestMessage = latestMessageMap.get(roomId)
+  const isOwner = Boolean(currentProfileId && row?.created_by && currentProfileId === row.created_by)
+  const memberRoleByMembership = membershipMeta?.currentMemberRoleMap?.get(roomId) || null
+  const memberRole = memberRoleByMembership || (isOwner ? 'owner' : null)
+  const rawMemberCount = Number(membershipMeta?.memberCountMap?.get(roomId) ?? 0)
+  const safeMemberCount = Number.isFinite(rawMemberCount) ? rawMemberCount : 0
+  const memberCount = Math.max(isOwner ? 1 : 0, safeMemberCount)
 
   return {
     id: row?.id ?? null,
@@ -96,7 +214,10 @@ function normalizeChatRoom(row, profileMap, latestMessageMap, currentProfileId) 
         ? '삭제된 메시지'
         : String(latestMessage.content || '').trim() || '(내용 없음)'
       : '',
-    isOwner: Boolean(currentProfileId && row?.created_by && currentProfileId === row.created_by),
+    isOwner,
+    isMember: Boolean(memberRole || isOwner),
+    memberRole,
+    memberCount,
   }
 }
 
@@ -136,8 +257,10 @@ export async function listChatRooms(currentProfileId = null) {
   const rows = data || []
   const profileMap = await fetchProfileNameMap(rows.map((row) => row.created_by))
 
-  let latestMessageMap = new Map()
   const roomIds = rows.map((row) => row.id).filter(Boolean)
+  const membershipMeta = await fetchRoomMembershipMeta(roomIds, currentProfileId)
+
+  let latestMessageMap = new Map()
 
   if (roomIds.length > 0) {
     const { data: messagesData, error: messagesError } = await supabase
@@ -158,7 +281,9 @@ export async function listChatRooms(currentProfileId = null) {
     })
   }
 
-  return rows.map((row) => normalizeChatRoom(row, profileMap, latestMessageMap, currentProfileId))
+  return rows.map((row) =>
+    normalizeChatRoom(row, profileMap, latestMessageMap, currentProfileId, membershipMeta),
+  )
 }
 
 export async function createChatRoom(payload, profile) {
@@ -190,30 +315,101 @@ export async function createChatRoom(payload, profile) {
 export async function deleteChatRoom(roomId) {
   requireSupabaseConfigured()
 
-  const safeRoomId = Number(roomId)
-  if (!Number.isFinite(safeRoomId) || safeRoomId <= 0) {
+  const safeRoomId = normalizeRoomId(roomId)
+  if (!safeRoomId) {
     throw new Error('삭제할 채팅방을 찾을 수 없습니다.')
   }
 
-  const { error } = await supabase.from(CHAT_ROOMS_TABLE).delete().eq('id', Math.floor(safeRoomId))
+  const { error } = await supabase.from(CHAT_ROOMS_TABLE).delete().eq('id', safeRoomId)
 
   if (error) {
     throw toError(error, '채팅방 삭제에 실패했습니다.')
   }
 }
 
+export async function joinChatRoom(roomId, profile) {
+  requireSupabaseConfigured()
+  assertProfile(profile)
+
+  const safeRoomId = normalizeRoomId(roomId)
+  if (!safeRoomId) {
+    throw new Error('참여할 채팅방을 찾을 수 없습니다.')
+  }
+
+  let lastMissingColumnError = null
+  const insertPayloads = buildMembershipInsertPayloads({
+    roomId: safeRoomId,
+    profileId: profile.id,
+    role: 'member',
+  })
+
+  for (const payload of insertPayloads) {
+    const { error } = await supabase.from(CHAT_ROOM_MEMBERS_TABLE).insert(payload)
+
+    if (!error || isDuplicateMembershipError(error)) {
+      return {
+        roomId: safeRoomId,
+      }
+    }
+
+    if (isMissingColumnError(error)) {
+      lastMissingColumnError = error
+      continue
+    }
+
+    throw toError(error, '채팅방 참여에 실패했습니다.')
+  }
+
+  throw toError(lastMissingColumnError, '채팅방 참여에 실패했습니다.')
+}
+
+export async function leaveChatRoom(roomId, profile) {
+  requireSupabaseConfigured()
+  assertProfile(profile)
+
+  const safeRoomId = normalizeRoomId(roomId)
+  if (!safeRoomId) {
+    throw new Error('나갈 채팅방을 찾을 수 없습니다.')
+  }
+
+  let lastMissingColumnError = null
+
+  for (const userField of MEMBERSHIP_USER_FIELD_CANDIDATES) {
+    const { error } = await supabase
+      .from(CHAT_ROOM_MEMBERS_TABLE)
+      .delete()
+      .eq('room_id', safeRoomId)
+      .eq(userField, profile.id)
+
+    if (!error) {
+      return {
+        roomId: safeRoomId,
+      }
+    }
+
+    if (isMissingColumnError(error)) {
+      lastMissingColumnError = error
+      continue
+    }
+
+    throw toError(error, '채팅방 나가기에 실패했습니다.')
+  }
+
+  throw toError(lastMissingColumnError, '채팅방 나가기에 실패했습니다.')
+}
+
 export async function listChatMessages({ roomId, currentProfileId = null }) {
   requireSupabaseConfigured()
 
-  const safeRoomId = Number(roomId)
-  if (!Number.isFinite(safeRoomId) || safeRoomId <= 0) {
+  const safeRoomId = normalizeRoomId(roomId)
+  if (!safeRoomId) {
     return []
   }
 
   const { data, error } = await supabase
     .from(CHAT_MESSAGES_TABLE)
     .select('*')
-    .eq('room_id', Math.floor(safeRoomId))
+    .eq('room_id', safeRoomId)
     .order('created_at', { ascending: true })
 
   if (error) {
@@ -230,8 +426,8 @@ export async function sendChatMessage(payload, profile) {
   requireSupabaseConfigured()
   assertProfile(profile)
 
-  const safeRoomId = Number(payload?.roomId)
-  if (!Number.isFinite(safeRoomId) || safeRoomId <= 0) {
+  const safeRoomId = normalizeRoomId(payload?.roomId)
+  if (!safeRoomId) {
     throw new Error('메시지를 보낼 채팅방을 찾을 수 없습니다.')
   }
 
@@ -340,12 +536,12 @@ export function subscribeChatRooms(onChange) {
 export function subscribeChatMessages({ roomId, onChange }) {
   requireSupabaseConfigured()
 
-  const safeRoomId = Number(roomId)
-  if (!Number.isFinite(safeRoomId) || safeRoomId <= 0) {
+  const safeRoomId = normalizeRoomId(roomId)
+  if (!safeRoomId) {
     return () => {}
   }
 
-  const channelName = `chat-messages:${Math.floor(safeRoomId)}:${Date.now()}`
+  const channelName = `chat-messages:${safeRoomId}:${Date.now()}`
   const channel = supabase
     .channel(channelName)
     .on(
@@ -354,7 +550,7 @@ export function subscribeChatMessages({ roomId, onChange }) {
         event: '*',
         schema: 'public',
         table: CHAT_MESSAGES_TABLE,
-        filter: `room_id=eq.${Math.floor(safeRoomId)}`,
+        filter: `room_id=eq.${safeRoomId}`,
       },
       (payload) => {
         onChange?.(payload)

@@ -7,7 +7,7 @@ const PAGE_TITLE_MAP = {
   '/': '홈',
   '/login': '로그인',
   '/invite': '초대 가입',
-  '/profile-complete': '프로필 설정',
+  '/profile-complete': '설정',
   '/meetups': '벙개',
   '/schedule': '일정',
   '/grace': '은혜',

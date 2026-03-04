@@ -788,6 +788,24 @@ textarea.form-control {
   margin-left: 0.25rem;
 }
 
+/* Praise */
+.praise-recommendations-grid-wrap {
+  width: 100%;
+  max-width: 1140px;
+  margin: 0 auto;
+}
+
+.praise-recommendations-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 340px));
+  justify-content: center;
+  gap: 1rem;
+}
+
+.praise-recommendation-card {
+  width: 100%;
+}
+
 /* Chat page */
 .chat-page {
   gap: 1rem;
@@ -911,6 +929,33 @@ textarea.form-control {
   white-space: nowrap;
 }
 
+.chat-room-list-item-meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.chat-room-membership-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.71rem;
+  font-weight: 700;
+}
+
+.chat-room-membership-badge.joined {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.chat-room-membership-badge.not-member {
+  background-color: #e5e7eb;
+  color: #6b7280;
+}
+
 .chat-room-main {
   min-width: 0;
   display: flex;
@@ -930,6 +975,30 @@ textarea.form-control {
   flex-wrap: wrap;
   padding-bottom: 0.75rem;
   border-bottom: 1px solid var(--border-color);
+}
+
+.chat-room-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.chat-room-back-button {
+  display: none;
+}
+
+.chat-room-gate-panel {
+  flex: 1;
+  min-height: 220px;
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-primary);
+  display: grid;
+  place-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  text-align: center;
 }
 
 .chat-message-list {
@@ -1170,6 +1239,10 @@ textarea.form-control {
   padding: 1rem;
 }
 
+.schedule-calendar-card {
+  --schedule-day-cell-height: clamp(88px, 10.5vw, 132px);
+}
+
 .schedule-calendar-toolbar {
   display: flex;
   justify-content: space-between;
@@ -1189,6 +1262,10 @@ textarea.form-control {
   grid-template-columns: repeat(7, minmax(0, 1fr));
 }
 
+.schedule-calendar-grid-body {
+  grid-auto-rows: var(--schedule-day-cell-height);
+}
+
 .schedule-weekday-label {
   color: var(--text-secondary);
   font-size: 0.78rem;
@@ -1198,7 +1275,8 @@ textarea.form-control {
 }
 
 .schedule-day-cell {
-  min-height: 132px;
+  min-height: var(--schedule-day-cell-height);
+  max-height: var(--schedule-day-cell-height);
   border: 1px solid var(--border-color);
   background-color: var(--bg-secondary);
   padding: 0.4rem;
@@ -1242,6 +1320,8 @@ textarea.form-control {
 .schedule-day-items {
   display: grid;
   gap: 0.28rem;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .schedule-chip {
@@ -1489,6 +1569,10 @@ textarea.form-control {
     padding: 0.75rem;
   }
 
+  .chat-shell.mobile-room-open {
+    grid-template-columns: 1fr;
+  }
+
   .chat-room-sidebar {
     padding-right: 0;
     padding-bottom: 0.75rem;
@@ -1512,6 +1596,38 @@ textarea.form-control {
   .chat-room-main-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .chat-room-main-header {
+    gap: 0.65rem;
+  }
+
+  .chat-room-header-actions {
+    width: 100%;
+  }
+
+  .chat-room-header-actions>button {
+    flex: 1 1 calc(50% - 0.25rem);
+    justify-content: center;
+  }
+
+  .chat-room-back-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .chat-room-gate-panel {
+    min-height: 180px;
+  }
+
+  .praise-recommendations-grid-wrap {
+    max-width: 100%;
+  }
+
+  .praise-recommendations-grid {
+    grid-template-columns: 1fr;
+    justify-content: stretch;
   }
 
   .chat-room-main {
@@ -1558,8 +1674,13 @@ textarea.form-control {
     padding: 0.85rem 1rem;
   }
 
+  .schedule-calendar-card {
+    --schedule-day-cell-height: clamp(72px, 17vw, 98px);
+  }
+
   .schedule-day-cell {
-    min-height: 100px;
+    min-height: var(--schedule-day-cell-height);
+    max-height: var(--schedule-day-cell-height);
     padding: 0.3rem;
   }
 

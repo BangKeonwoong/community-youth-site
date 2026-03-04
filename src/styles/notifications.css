@@ -1,0 +1,48 @@
+.notif-toast-root {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 300;
+  display: grid;
+  gap: 0.5rem;
+  width: min(360px, calc(100vw - 1.5rem));
+}
+
+.notif-toast {
+  width: 100%;
+  text-align: left;
+  border-radius: 0.9rem;
+  border: 1px solid var(--border-color);
+  background: color-mix(in oklab, var(--bg-secondary) 92%, var(--accent-light) 8%);
+  box-shadow: var(--shadow-lg);
+  padding: 0.75rem 0.85rem;
+  display: grid;
+  gap: 0.22rem;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.notif-toast:hover {
+  transform: translateY(-2px);
+}
+
+.notif-toast-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.notif-toast-body {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.35;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@media (max-width: 768px) {
+  .notif-toast-root {
+    top: 0.65rem;
+    right: 0.65rem;
+    width: min(340px, calc(100vw - 1.3rem));
+  }
+}

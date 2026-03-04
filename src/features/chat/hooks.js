@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createChatRoom,
   deleteChatRoom,
+  joinChatRoom,
+  leaveChatRoom,
   listChatMessages,
   listChatRooms,
   sendChatMessage,
@@ -138,6 +140,41 @@ function patchRoomLastMessage(rooms, { roomId, message }) {
   })
 }
 
+function patchRoomMembership(rooms, { roomId, isMember, memberRole }) {
+  if (!Array.isArray(rooms)) {
+    return rooms
+  }
+
+  const safeRoomId = normalizeRoomId(roomId)
+  if (!safeRoomId) {
+    return rooms
+  }
+
+  return rooms.map((room) => {
+    if (normalizeRoomId(room?.id) !== safeRoomId) {
+      return room
+    }
+
+    const rawMemberCount = Number(room?.memberCount ?? 0)
+    const currentMemberCount = Number.isFinite(rawMemberCount) ? rawMemberCount : 0
+    const isAlreadyMember = Boolean(room?.isMember)
+    const nextMemberCount = isMember
+      ? isAlreadyMember
+        ? currentMemberCount
+        : currentMemberCount + 1
+      : isAlreadyMember
+        ? Math.max(0, currentMemberCount - 1)
+        : currentMemberCount
+
+    return {
+      ...room,
+      isMember,
+      memberRole: isMember ? memberRole || room?.memberRole || 'member' : null,
+      memberCount: nextMemberCount,
+    }
+  })
+}
+
 function buildOptimisticMessage({ roomId, content, profile, clientId, createdAt }) {
   const safeCreatedAt = createdAt || new Date().toISOString()
   return {
@@ -214,7 +251,7 @@ function normalizeDeletePayload(payload) {
   }
 }
 
-export function useChatPage({ selectedRoomId = null } = {}) {
+export function useChatPage({ selectedRoomId = null, autoSelectFirstRoom = true } = {}) {
   const queryClient = useQueryClient()
   const supabaseStatus = useSupabaseStatus()
   const safeSelectedRoomId = normalizeRoomId(selectedRoomId)
@@ -245,8 +282,17 @@ export function useChatPage({ selectedRoomId = null } = {}) {
       return safeSelectedRoomId
     }
 
+    if (!autoSelectFirstRoom) {
+      return null
+    }
+
     return normalizeRoomId(rooms[0]?.id)
-  }, [rooms, safeSelectedRoomId])
+  }, [autoSelectFirstRoom, rooms, safeSelectedRoomId])
+  const activeRoom = useMemo(
+    () => rooms.find((room) => normalizeRoomId(room?.id) === activeRoomId) || null,
+    [activeRoomId, rooms],
+  )
+  const canAccessActiveRoom = Boolean(activeRoom?.isMember)
 
   const messagesQueryKey = useMemo(
     () => getScopedMessagesQueryKey(activeRoomId, profileId),
@@ -259,7 +305,7 @@ export function useChatPage({ selectedRoomId = null } = {}) {
         roomId: activeRoomId,
         currentProfileId: profileId,
       }),
-    enabled: isEnabled && Boolean(activeRoomId),
+    enabled: isEnabled && Boolean(activeRoomId) && canAccessActiveRoom,
   })
 
   const createRoomMutation = useMutation({
@@ -274,6 +320,82 @@ export function useChatPage({ selectedRoomId = null } = {}) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CHAT_ROOMS_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: CHAT_MESSAGES_QUERY_KEY })
+    },
+  })
+
+  const joinRoomMutation = useMutation({
+    mutationFn: (roomId) => joinChatRoom(roomId, profileQuery.data),
+    onMutate: async (roomId) => {
+      const safeRoomId = normalizeRoomId(roomId)
+      if (!safeRoomId) {
+        return {}
+      }
+
+      await queryClient.cancelQueries({ queryKey: roomsQueryKey, exact: true })
+      const previousRooms = queryClient.getQueryData(roomsQueryKey)
+
+      queryClient.setQueryData(roomsQueryKey, (current) =>
+        patchRoomMembership(current, {
+          roomId: safeRoomId,
+          isMember: true,
+          memberRole: 'member',
+        }),
+      )
+
+      return {
+        safeRoomId,
+        previousRooms,
+      }
+    },
+    onError: (_error, _roomId, context) => {
+      if (context?.previousRooms !== undefined) {
+        queryClient.setQueryData(roomsQueryKey, context.previousRooms)
+      }
+    },
+    onSuccess: (_result, roomId) => {
+      const safeRoomId = normalizeRoomId(roomId)
+      queryClient.invalidateQueries({ queryKey: roomsQueryKey, exact: true })
+      if (safeRoomId) {
+        queryClient.invalidateQueries({ queryKey: getScopedMessagesQueryKey(safeRoomId, profileId), exact: true })
+      }
+    },
+  })
+
+  const leaveRoomMutation = useMutation({
+    mutationFn: (roomId) => leaveChatRoom(roomId, profileQuery.data),
+    onMutate: async (roomId) => {
+      const safeRoomId = normalizeRoomId(roomId)
+      if (!safeRoomId) {
+        return {}
+      }
+
+      await queryClient.cancelQueries({ queryKey: roomsQueryKey, exact: true })
+      const previousRooms = queryClient.getQueryData(roomsQueryKey)
+
+      queryClient.setQueryData(roomsQueryKey, (current) =>
+        patchRoomMembership(current, {
+          roomId: safeRoomId,
+          isMember: false,
+          memberRole: null,
+        }),
+      )
+
+      return {
+        safeRoomId,
+        previousRooms,
+      }
+    },
+    onError: (_error, _roomId, context) => {
+      if (context?.previousRooms !== undefined) {
+        queryClient.setQueryData(roomsQueryKey, context.previousRooms)
+      }
+    },
+    onSuccess: (_result, roomId) => {
+      const safeRoomId = normalizeRoomId(roomId)
+      queryClient.invalidateQueries({ queryKey: roomsQueryKey, exact: true })
+      if (safeRoomId) {
+        queryClient.removeQueries({ queryKey: getScopedMessagesQueryKey(safeRoomId, profileId), exact: true })
+      }
     },
   })
 
@@ -571,7 +693,7 @@ export function useChatPage({ selectedRoomId = null } = {}) {
   }, [isEnabled, queryClient, roomsQueryKey, supabaseStatus.configured])
 
   useEffect(() => {
-    if (!supabaseStatus.configured || !isEnabled || !activeRoomId) {
+    if (!supabaseStatus.configured || !isEnabled || !activeRoomId || !canAccessActiveRoom) {
       return undefined
     }
 
@@ -677,14 +799,31 @@ export function useChatPage({ selectedRoomId = null } = {}) {
     queryClient,
     roomsQueryKey,
     supabaseStatus.configured,
+    canAccessActiveRoom,
   ])
 
-  const sendMessage = (payload) => sendMessageMutation.mutateAsync(payload)
+  const sendMessage = (payload) => {
+    const roomId = normalizeRoomId(payload?.roomId) || activeRoomId
+    if (!roomId) {
+      return Promise.reject(new Error('메시지를 보낼 채팅방을 찾을 수 없습니다.'))
+    }
+
+    const targetRoom = rooms.find((room) => normalizeRoomId(room?.id) === roomId) || null
+    if (!targetRoom?.isMember) {
+      return Promise.reject(new Error('채팅방에 참여한 뒤 메시지를 보낼 수 있습니다.'))
+    }
+
+    return sendMessageMutation.mutateAsync(payload)
+  }
 
   const retryFailedMessage = async (messageId) => {
     const roomId = normalizeRoomId(activeRoomId)
     if (!roomId) {
       throw new Error('재전송할 채팅방을 찾을 수 없습니다.')
+    }
+
+    if (!canAccessActiveRoom) {
+      throw new Error('채팅방에 참여한 뒤 재전송할 수 있습니다.')
     }
 
     const scopedMessagesQueryKey = getScopedMessagesQueryKey(roomId, profileId)
@@ -711,6 +850,7 @@ export function useChatPage({ selectedRoomId = null } = {}) {
   }
 
   const isRoomSubmitting = createRoomMutation.isPending || deleteRoomMutation.isPending
+  const isMembershipSubmitting = joinRoomMutation.isPending || leaveRoomMutation.isPending
   const isMessageSending = sendMessageMutation.isPending
   const isMessageMutating = updateMessageMutation.isPending || deleteMessageMutation.isPending
 
@@ -719,32 +859,42 @@ export function useChatPage({ selectedRoomId = null } = {}) {
     profile: profileQuery.data,
     rooms,
     activeRoomId,
-    messages: messagesQuery.data || [],
+    activeRoom,
+    messages: canAccessActiveRoom ? messagesQuery.data || [] : [],
     isLoading:
       profileQuery.isLoading ||
       (isEnabled && roomsQuery.isLoading && roomsQuery.fetchStatus !== 'idle'),
     isMessagesLoading:
       profileQuery.isLoading ||
-      (isEnabled && Boolean(activeRoomId) && messagesQuery.isLoading && messagesQuery.fetchStatus !== 'idle'),
+      (isEnabled &&
+        canAccessActiveRoom &&
+        Boolean(activeRoomId) &&
+        messagesQuery.isLoading &&
+        messagesQuery.fetchStatus !== 'idle'),
     error:
       profileQuery.error ||
       roomsQuery.error ||
       messagesQuery.error ||
       createRoomMutation.error ||
       deleteRoomMutation.error ||
+      joinRoomMutation.error ||
+      leaveRoomMutation.error ||
       sendMessageMutation.error ||
       updateMessageMutation.error ||
       deleteMessageMutation.error ||
       null,
     createRoom: createRoomMutation.mutateAsync,
     deleteRoom: deleteRoomMutation.mutateAsync,
+    joinRoom: joinRoomMutation.mutateAsync,
+    leaveRoom: leaveRoomMutation.mutateAsync,
     sendMessage,
     retryFailedMessage,
     updateMessage: updateMessageMutation.mutateAsync,
     deleteMessage: deleteMessageMutation.mutateAsync,
     isRoomSubmitting,
+    isMembershipSubmitting,
     isMessageSending,
     isMessageMutating,
-    isSubmitting: isRoomSubmitting || isMessageSending || isMessageMutating,
+    isSubmitting: isRoomSubmitting || isMembershipSubmitting || isMessageSending || isMessageMutating,
   }
 }

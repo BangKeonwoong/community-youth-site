@@ -5,12 +5,15 @@ import './index.css'
 import App from './App.jsx'
 import { queryClient } from './lib/queryClient'
 import { AuthProvider } from './providers/AuthProvider'
+import NotificationProvider from './providers/NotificationProvider'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <App />
+        <NotificationProvider>
+          <App />
+        </NotificationProvider>
       </AuthProvider>
     </QueryClientProvider>
   </StrictMode>,

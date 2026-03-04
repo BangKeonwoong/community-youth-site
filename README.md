@@ -19,6 +19,8 @@ npm run dev
 ```bash
 VITE_SUPABASE_URL=...
 VITE_SUPABASE_ANON_KEY=...
+# 선택: 브라우저 Web Push 구독용 공개키
+# VITE_WEB_PUSH_PUBLIC_KEY=...
 ```
 
 - `VITE_` 접두사는 브라우저 번들에 포함됩니다.
@@ -68,6 +70,8 @@ VITE_SUPABASE_ANON_KEY=...
 - `supabase/migrations/20260306_realtime_chat_and_comments.sql`
 - `supabase/migrations/20260307_grace_scripture_anonymous.sql`
 - `supabase/migrations/20260308_login_id_member_type_auth.sql`
+- `supabase/migrations/20260309_signup_no_invite_window.sql`
+- `supabase/migrations/20260310_chat_membership_and_notifications.sql`
 
 적용/운영 가이드는 `supabase/README.md`를 참고하세요.
 

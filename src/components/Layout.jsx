@@ -13,6 +13,7 @@ import {
   LogOut,
   ShieldCheck,
   Menu,
+  Settings,
 } from 'lucide-react'
 import ErrorBanner from './common/ErrorBanner'
 import { getCurrentProfile } from '../features/profile/api'
@@ -26,6 +27,7 @@ const BASE_NAV_ITEMS = [
   { name: '생일', path: '/birthdays', icon: Cake },
   { name: '채팅', path: '/chat', icon: MessageSquare },
   { name: '메시지', path: '/messages', icon: MessageSquare },
+  { name: '설정', path: '/profile-complete', icon: Settings },
   { name: '벙개', path: '/meetups', icon: Users },
   { name: '은혜', path: '/grace', icon: Heart },
   { name: '기도', path: '/prayer', icon: BookOpen },

@@ -9,7 +9,11 @@ import {
 
 const LOGIN_ID_PATTERN = /^[a-z0-9._-]{4,20}$/
 const MEMBER_TYPE_SET = new Set(['pastor', 'teacher', 'student'])
-const AUTH_LOGIN_DOMAIN = 'community.local'
+const AUTH_LOGIN_DOMAIN = String(
+  import.meta.env.VITE_AUTH_LOGIN_DOMAIN || 'example.com'
+)
+  .trim()
+  .toLowerCase()
 
 function authUnavailableResult() {
   return { data: null, error: createSupabaseNotConfiguredError() }

@@ -12,10 +12,12 @@ import {
   MessageSquare,
   LogOut,
   ShieldCheck,
+  Menu,
 } from 'lucide-react'
 import ErrorBanner from './common/ErrorBanner'
 import { getCurrentProfile } from '../features/profile/api'
 import { useAuth } from '../hooks/useAuth'
+import MobileMenu from './MobileMenu'
 
 const PROFILE_QUERY_KEY = ['profile']
 const BASE_NAV_ITEMS = [
@@ -35,6 +37,7 @@ function Layout() {
   const { signOut } = useAuth()
   const [logoutError, setLogoutError] = useState('')
   const [isSigningOut, setIsSigningOut] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const profileQuery = useQuery({
     queryKey: PROFILE_QUERY_KEY,
     queryFn: getCurrentProfile,
@@ -57,6 +60,11 @@ function Layout() {
 
     setIsSigningOut(false)
   }
+
+  const PRIMARY_MOBILE_PATHS = ['/', '/schedule', '/chat', '/meetups']
+  const mobilePrimaryItems = PRIMARY_MOBILE_PATHS.map((path) => navItems.find((item) => item.path === path)).filter(
+    Boolean,
+  )
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg-primary)' }}>
@@ -126,7 +134,7 @@ function Layout() {
       </main>
 
       <nav className="bottom-nav">
-        {navItems.map((item) => {
+        {mobilePrimaryItems.map((item) => {
           const isActive = location.pathname === item.path
           const Icon = item.icon
 
@@ -137,7 +145,20 @@ function Layout() {
             </Link>
           )
         })}
+        <button className="bottom-nav-item" onClick={() => setIsMobileMenuOpen(true)}>
+          <Menu size={24} />
+          <span>메뉴</span>
+        </button>
       </nav>
+
+      <MobileMenu
+        isOpen={isMobileMenuOpen}
+        onClose={() => setIsMobileMenuOpen(false)}
+        navItems={navItems}
+        isSigningOut={isSigningOut}
+        handleSignOut={handleSignOut}
+        logoutError={logoutError}
+      />
     </div>
   )
 }

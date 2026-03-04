@@ -71,6 +71,7 @@ function toSettingsRow(profileId, patch = {}) {
 
 async function ensureSettingsWithRpc(profileId) {
   const candidates = [
+    { p_profile: profileId },
     { p_profile_id: profileId },
     { profile_id: profileId },
     { p_user_id: profileId },
@@ -78,6 +79,7 @@ async function ensureSettingsWithRpc(profileId) {
   ]
 
   let lastError = null
+  let hasSignatureIssue = false
 
   for (const params of candidates) {
     const { data, error } = await supabase.rpc('ensure_profile_notification_settings', params)
@@ -92,9 +94,16 @@ async function ensureSettingsWithRpc(profileId) {
       message.includes('Could not find the function') ||
       message.includes('does not exist')
 
-    if (!isSignatureIssue) {
-      throw toError(error, '알림 설정을 확인하지 못했습니다.')
+    if (isSignatureIssue) {
+      hasSignatureIssue = true
+      continue
     }
+
+    throw toError(error, '알림 설정을 확인하지 못했습니다.')
+  }
+
+  if (hasSignatureIssue) {
+    return null
   }
 
   if (lastError) {
@@ -144,11 +153,8 @@ export async function getNotificationSettings(profileId) {
     if (ensured) {
       return ensured
     }
-  } catch (error) {
-    const message = String(error?.message || '')
-    if (!message.includes('알림 설정')) {
-      throw error
-    }
+  } catch {
+    // Fall through to table-based fallback path.
   }
 
   return fallbackEnsureSettings(profileId)

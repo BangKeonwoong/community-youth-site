@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { PlusCircle, Youtube, Play } from 'lucide-react'
+import ErrorBanner from '../components/common/ErrorBanner'
 import PostComments from '../components/comments/PostComments'
 import { usePraisePage } from '../features/praise/hooks'
 import { canManagePost } from '../features/profile/api'
@@ -263,47 +265,65 @@ function PraiseRecommendationsContent() {
               <article
                 key={recommendation.id}
                 className="glass praise-recommendation-card"
-                style={{ overflow: 'hidden', borderRadius: 'var(--radius-lg)', display: 'flex', flexDirection: 'column' }}
+                style={{ overflow: 'hidden', borderRadius: 'var(--radius-lg)' }}
               >
-                <div
-                  style={{
-                    width: '100%',
-                    aspectRatio: '16 / 9',
-                    backgroundColor: 'var(--bg-tertiary)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    overflow: 'hidden',
-                  }}
-                >
-                  {recommendation.thumbnailUrl ? (
-                    <img
-                      src={recommendation.thumbnailUrl}
-                      alt={`${recommendation.title} 썸네일`}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    />
-                  ) : (
-                    <span style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>Thumbnail</span>
-                  )}
-                </div>
+                {recommendation.youtubeUrl ? (
+                  <a href={recommendation.youtubeUrl} target="_blank" rel="noreferrer" style={{ display: 'block' }}>
+                    <div className="praise-media-container">
+                      {recommendation.thumbnailUrl ? (
+                        <img
+                          src={recommendation.thumbnailUrl}
+                          alt={`${recommendation.title} 썸네일`}
+                          className="praise-media-image"
+                        />
+                      ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+                          <span style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>No Thumbnail</span>
+                        </div>
+                      )}
+                      <div className="praise-media-overlay">
+                        <Play size={48} fill="currentColor" className="praise-play-icon" />
+                      </div>
+                    </div>
+                  </a>
+                ) : (
+                  <div className="praise-media-container">
+                    {recommendation.thumbnailUrl ? (
+                      <img
+                        src={recommendation.thumbnailUrl}
+                        alt={`${recommendation.title} 썸네일`}
+                        className="praise-media-image"
+                      />
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+                        <span style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>No Thumbnail</span>
+                      </div>
+                    )}
+                  </div>
+                )}
 
-                <div style={{ padding: '1rem', display: 'grid', gap: '0.5rem' }}>
-                  <h3 style={{ fontSize: '1.05rem', fontWeight: 600 }}>{recommendation.title}</h3>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                    {recommendation.artist || '아티스트 미정'} • {recommendation.authorName}
-                  </p>
-                  <p style={{ color: 'var(--text-primary)', opacity: 0.9, whiteSpace: 'pre-wrap', fontSize: '0.92rem' }}>
-                    {recommendation.note || '추천 코멘트가 없습니다.'}
-                  </p>
+                <div style={{ padding: '1.25rem', display: 'grid', gap: '0.65rem' }}>
+                  <div>
+                    <h3 style={{ fontSize: '1.15rem', fontWeight: 700, lineHeight: 1.3 }}>{recommendation.title}</h3>
+                    <p style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem', marginTop: '0.2rem', fontWeight: 500 }}>
+                      {recommendation.artist || '아티스트 미정'} • {recommendation.authorName}
+                    </p>
+                  </div>
+
+                  {recommendation.note && (
+                    <div className="praise-note-block">
+                      {recommendation.note}
+                    </div>
+                  )}
 
                   {recommendation.youtubeUrl ? (
                     <a
                       href={recommendation.youtubeUrl}
                       target="_blank"
                       rel="noreferrer"
-                      style={{ color: 'var(--accent-primary)', fontSize: '0.85rem', fontWeight: 600 }}
+                      style={{ color: 'var(--accent-primary)', fontSize: '0.85rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
                     >
-                      유튜브로 듣기
+                      <Youtube size={16} /> 유튜브에서 재생
                     </a>
                   ) : null}
 

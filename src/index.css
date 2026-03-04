@@ -791,19 +791,85 @@ textarea.form-control {
 /* Praise */
 .praise-recommendations-grid-wrap {
   width: 100%;
-  max-width: 1140px;
+  max-width: 1200px;
   margin: 0 auto;
 }
 
 .praise-recommendations-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 340px));
-  justify-content: center;
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  justify-content: stretch;
+  gap: 1.5rem;
 }
 
 .praise-recommendation-card {
   width: 100%;
+  transition: transform var(--transition-normal), box-shadow var(--transition-normal);
+  display: flex;
+  flex-direction: column;
+}
+
+.praise-recommendation-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+}
+
+.praise-media-container {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background-color: var(--bg-tertiary);
+  position: relative;
+  overflow: hidden;
+}
+
+.praise-media-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform var(--transition-normal);
+}
+
+.praise-media-container:hover .praise-media-image {
+  transform: scale(1.05);
+}
+
+.praise-media-overlay {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity var(--transition-normal);
+}
+
+.praise-media-container:hover .praise-media-overlay {
+  opacity: 1;
+}
+
+.praise-play-icon {
+  color: white;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
+  transform: scale(0.8);
+  transition: transform var(--transition-normal);
+}
+
+.praise-media-container:hover .praise-play-icon {
+  transform: scale(1);
+}
+
+.praise-note-block {
+  border-left: 3px solid var(--accent-primary);
+  padding: 0.75rem 1rem;
+  margin-top: 0.25rem;
+  margin-bottom: 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  background-color: var(--accent-light);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
 }
 
 /* Chat page */

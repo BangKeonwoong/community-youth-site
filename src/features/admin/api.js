@@ -33,6 +33,10 @@ function mapAdminErrorMessage(rawMessage, errorCode, fallbackMessage) {
     return '마지막 관리자는 해제할 수 없습니다.'
   }
 
+  if (message.includes('INVALID_NO_INVITE_PERIOD_END')) {
+    return '초대코드 면제 종료 시각은 현재 시각보다 미래여야 합니다.'
+  }
+
   if (message.includes('INVITE_NOT_FOUND')) {
     return '초대코드를 찾을 수 없습니다.'
   }
@@ -132,6 +136,23 @@ function toIsoOrNull(value) {
 
   const parsed = new Date(value)
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString()
+}
+
+function toStrictIsoOrNull(value, invalidMessage) {
+  if (value === null || typeof value === 'undefined') {
+    return null
+  }
+
+  if (typeof value === 'string' && value.trim() === '') {
+    return null
+  }
+
+  const iso = toIsoOrNull(value)
+  if (!iso) {
+    throw new Error(invalidMessage)
+  }
+
+  return iso
 }
 
 function toDefaultInviteExpiresAt(value) {
@@ -243,6 +264,22 @@ function normalizeInviteCodeRow(row, profileMap) {
   }
 }
 
+function toBoolean(value) {
+  return value === true || value === 'true'
+}
+
+function normalizeSignupPolicy(payload) {
+  const row = payload && typeof payload === 'object' ? payload : {}
+
+  return {
+    noInviteRequiredUntil: toIsoOrNull(row.no_invite_required_until),
+    isNoInvitePeriod: toBoolean(row.is_no_invite_period),
+    isBootstrapAvailable: toBoolean(row.is_bootstrap_available),
+    isInviteRequired: toBoolean(row.is_invite_required),
+    serverNow: toIsoOrNull(row.server_now),
+  }
+}
+
 function toModerationContent(type, row) {
   if (type === 'meetup') {
     return [row.description, row.location].filter(Boolean).join(' · ')
@@ -328,6 +365,37 @@ export async function listInviteCodes() {
   )
 
   return rows.map((row) => normalizeInviteCodeRow(row, profileMap))
+}
+
+export async function getSignupPolicy() {
+  requireSupabaseConfigured()
+
+  const { data, error } = await supabase.rpc('get_signup_policy')
+  if (error) {
+    throw toError(error, '가입 정책을 불러오지 못했습니다.')
+  }
+
+  return normalizeSignupPolicy(data)
+}
+
+export async function setNoInviteSignupUntil(payload, currentProfile) {
+  requireSupabaseConfigured()
+  assertAdminProfile(currentProfile)
+
+  const until = toStrictIsoOrNull(
+    payload?.until ?? payload?.noInviteRequiredUntil ?? null,
+    '초대코드 면제 종료 시각 형식이 올바르지 않습니다.',
+  )
+
+  const { data, error } = await supabase.rpc('set_no_invite_signup_until', {
+    p_until: until,
+  })
+
+  if (error) {
+    throw toError(error, '초대코드 면제 기간 설정에 실패했습니다.')
+  }
+
+  return normalizeSignupPolicy(data)
 }
 
 async function insertInviteCode(row) {

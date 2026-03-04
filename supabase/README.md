@@ -10,6 +10,7 @@
 - `migrations/20260306_realtime_chat_and_comments.sql`
 - `migrations/20260307_grace_scripture_anonymous.sql`
 - `migrations/20260308_login_id_member_type_auth.sql`
+- `migrations/20260309_signup_no_invite_window.sql`
 
 포함 내용:
 - 핵심 테이블 10종
@@ -29,6 +30,9 @@
 - 초대코드 사용 RPC: `redeem_invite_code(code, login_id, display_name, birth_date, phone_number, member_type, gender)`
 - 최초 관리자 부트스트랩 RPC: `bootstrap_owner_profile(login_id, display_name, birth_date, phone_number, member_type, gender)`
 - 아이디 매핑 RPC: `resolve_login_email(login_id)`
+- 가입 정책 조회 RPC: `get_signup_policy()`
+- 초대코드 면제 기간 설정 RPC: `set_no_invite_signup_until(until)`
+- 가입 완료 RPC: `complete_signup_profile(code, login_id, display_name, birth_date, phone_number, member_type, gender)`
 - 전체 RLS 활성화 및 정책
 
 ## 적용 방법
@@ -90,6 +94,52 @@ from public.bootstrap_owner_profile(
 - 로그인 사용자(`auth.uid()`) 필요
 - `profiles`가 비어 있을 때만 실행 가능
 - 최초 1명 프로필을 `is_admin = true`로 생성
+
+## 초대코드 면제 기간 정책
+
+관리자는 일정 기간 동안 초대코드 없이 가입 가능하도록 설정할 수 있습니다.
+
+- 정책 조회:
+
+```sql
+select public.get_signup_policy();
+```
+
+- 면제 기간 설정(관리자 전용, 지금부터 지정 시각까지 유효):
+
+```sql
+select public.set_no_invite_signup_until(
+  p_until => '2026-03-31T23:59:00+09:00'
+);
+```
+
+- 면제 기간 즉시 종료:
+
+```sql
+select public.set_no_invite_signup_until(
+  p_until => null
+);
+```
+
+- 가입 완료(클라이언트에서 가입 직후 호출):
+
+```sql
+select *
+from public.complete_signup_profile(
+  p_code => null,
+  p_login_id => 'sample.id',
+  p_display_name => '홍길동',
+  p_birth_date => '2008-01-01',
+  p_phone_number => '01012345678',
+  p_member_type => 'student',
+  p_gender => 'male'
+);
+```
+
+동작 요약:
+- `profiles`가 비어 있으면 기존과 동일하게 첫 관리자 부트스트랩 분기
+- 면제 기간 활성 시: 초대코드 미입력만 허용
+- 면제 기간 비활성 시: 초대코드 필수
 
 ## 보안 원칙
 

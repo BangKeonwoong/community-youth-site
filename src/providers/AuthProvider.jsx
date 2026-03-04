@@ -60,6 +60,23 @@ function isInvalidSignUpEmailError(message) {
   return SIGNUP_INVALID_EMAIL_PATTERN.test(String(message || ''))
 }
 
+function toBoolean(value) {
+  return value === true || value === 'true'
+}
+
+function normalizeSignUpPolicy(rawPolicy) {
+  const policy = rawPolicy && typeof rawPolicy === 'object' ? rawPolicy : {}
+  const noInviteRequiredUntil = String(policy.no_invite_required_until || '').trim() || null
+
+  return {
+    noInviteRequiredUntil,
+    isNoInvitePeriod: toBoolean(policy.is_no_invite_period),
+    isBootstrapAvailable: toBoolean(policy.is_bootstrap_available),
+    isInviteRequired: toBoolean(policy.is_invite_required),
+    serverNow: String(policy.server_now || '').trim() || null,
+  }
+}
+
 function toSimpleError(message) {
   return {
     message,
@@ -107,6 +124,14 @@ function mapAuthErrorMessage(rawMessage, hasInviteCode) {
 
   if (message.includes('INVITE_REVOKED')) {
     return '회수된 초대코드입니다.'
+  }
+
+  if (message.includes('INVITE_REQUIRED')) {
+    return '현재는 초대코드가 필요한 기간입니다. 초대코드를 입력해 주세요.'
+  }
+
+  if (message.includes('INVITE_CODE_DISABLED_DURING_OPEN_SIGNUP')) {
+    return '현재는 초대코드 없이 가입하는 기간입니다. 초대코드 입력 없이 다시 가입해 주세요.'
   }
 
   if (message.includes('USER_ALREADY_REDEEMED')) {
@@ -248,6 +273,25 @@ export function AuthProvider({ children }) {
     return result
   }
 
+  const getSignUpPolicy = async () => {
+    if (!supabase) {
+      return authUnavailableResult()
+    }
+
+    const result = await supabase.rpc('get_signup_policy')
+    if (result.error) {
+      return {
+        data: null,
+        error: toSimpleError(mapAuthErrorMessage(result.error.message, false)),
+      }
+    }
+
+    return {
+      data: normalizeSignUpPolicy(result.data),
+      error: null,
+    }
+  }
+
   const signUpWithInvite = async ({
     inviteCode,
     loginId,
@@ -352,30 +396,26 @@ export function AuthProvider({ children }) {
     }
 
     if (activeSession) {
-      const trimmedCode = normalizedInviteCode
-      const rpcName = trimmedCode ? 'redeem_invite_code' : 'bootstrap_owner_profile'
-      const rpcParams = {
+      const { error: completeSignUpError } = await supabase.rpc('complete_signup_profile', {
+        p_code: normalizedInviteCode || null,
         p_display_name: normalizedDisplayName || null,
         p_birth_date: normalizedBirthDate || null,
         p_phone_number: normalizedPhoneNumber || null,
         p_gender: normalizedGender || null,
         p_login_id: normalizedLoginId || null,
         p_member_type: normalizedMemberType || null,
-      }
+      })
 
-      if (trimmedCode) {
-        rpcParams.p_code = trimmedCode
-      }
-
-      const { error: redeemError } = await supabase.rpc(rpcName, rpcParams)
-
-      if (redeemError) {
-        const mappedMessage = mapAuthErrorMessage(redeemError.message, Boolean(trimmedCode))
+      if (completeSignUpError) {
+        const mappedMessage = mapAuthErrorMessage(
+          completeSignUpError.message,
+          Boolean(normalizedInviteCode),
+        )
         setAuthError(mappedMessage)
         return {
           data: signUpResult.data,
           error: {
-            ...redeemError,
+            ...completeSignUpError,
             message: mappedMessage,
           },
         }
@@ -413,6 +453,7 @@ export function AuthProvider({ children }) {
     authError,
     isSupabaseConfigured,
     signInWithLoginId,
+    getSignUpPolicy,
     signUpWithInvite,
     signOut,
   }

@@ -197,6 +197,14 @@ function mapOnboardingErrorMessage(rawMessage) {
     return '회수된 초대코드입니다. 관리자에게 새 코드를 요청해 주세요.'
   }
 
+  if (message.includes('INVITE_REQUIRED')) {
+    return '현재는 초대코드가 필요한 기간입니다. 초대코드를 입력해 다시 가입해 주세요.'
+  }
+
+  if (message.includes('INVITE_CODE_DISABLED_DURING_OPEN_SIGNUP')) {
+    return '현재는 초대코드 없이 가입하는 기간입니다. 초대코드 없이 다시 시도해 주세요.'
+  }
+
   if (message.includes('USER_ALREADY_REDEEMED')) {
     return '이미 초대코드가 적용된 계정입니다. 다시 로그인해 주세요.'
   }
@@ -251,35 +259,14 @@ async function completeOnboardingForUser(user) {
   const memberType = normalizeMemberType(user?.user_metadata?.member_type) || 'student'
   const gender = normalizeGender(user?.user_metadata?.gender)
 
-  if (inviteCode) {
-    const { error } = await supabase.rpc('redeem_invite_code', {
-      p_code: inviteCode,
-      p_login_id: loginId || null,
-      p_display_name: displayName,
-      p_birth_date: birthDate || null,
-      p_phone_number: phoneNumber || null,
-      p_member_type: memberType || null,
-      p_gender: gender || null,
-    })
-
-    if (error) {
-      const mapped = mapOnboardingErrorMessage(error.message)
-      if (mapped) {
-        throw new Error(mapped)
-      }
-      throw toError(error, '초대코드 적용에 실패했습니다.')
-    }
-
-    return
-  }
-
-  const { error } = await supabase.rpc('bootstrap_owner_profile', {
-    p_login_id: loginId || null,
+  const { error } = await supabase.rpc('complete_signup_profile', {
+    p_code: inviteCode || null,
     p_display_name: displayName,
     p_birth_date: birthDate || null,
     p_phone_number: phoneNumber || null,
     p_member_type: memberType || null,
     p_gender: gender || null,
+    p_login_id: loginId || null,
   })
 
   if (error) {
@@ -287,7 +274,7 @@ async function completeOnboardingForUser(user) {
     if (mapped) {
       throw new Error(mapped)
     }
-    throw toError(error, '관리자 부트스트랩에 실패했습니다.')
+    throw toError(error, '가입 프로필 완료 처리에 실패했습니다.')
   }
 }
 

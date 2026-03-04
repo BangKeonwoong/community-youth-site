@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ShieldCheck, UserCog, Ticket, Trash2 } from 'lucide-react'
 import EmptyState from '../components/common/EmptyState'
 import ErrorBanner from '../components/common/ErrorBanner'
@@ -14,6 +14,26 @@ function getDefaultInviteExpiresAt() {
   const date = new Date()
   date.setDate(date.getDate() + 30)
   date.setSeconds(0, 0)
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+}
+
+function getDefaultNoInviteUntil() {
+  const date = new Date()
+  date.setDate(date.getDate() + 7)
+  date.setSeconds(0, 0)
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+}
+
+function toDateTimeLocalValue(value, fallbackValue = '') {
+  if (!value) {
+    return fallbackValue
+  }
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return fallbackValue
+  }
+
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
 }
 
@@ -224,6 +244,26 @@ function normalizeModerationItem(item) {
   }
 }
 
+function normalizeSignupPolicy(policy) {
+  if (!policy) {
+    return {
+      noInviteRequiredUntil: null,
+      isNoInvitePeriod: false,
+      isInviteRequired: false,
+      isBootstrapAvailable: false,
+    }
+  }
+
+  const noInviteRequiredUntil = policy.noInviteRequiredUntil ?? policy.no_invite_required_until ?? null
+
+  return {
+    noInviteRequiredUntil,
+    isNoInvitePeriod: Boolean(policy.isNoInvitePeriod ?? policy.is_no_invite_period),
+    isInviteRequired: Boolean(policy.isInviteRequired ?? policy.is_invite_required),
+    isBootstrapAvailable: Boolean(policy.isBootstrapAvailable ?? policy.is_bootstrap_available),
+  }
+}
+
 function isSoftDeleteModerationType(type) {
   return type === 'comment' || type === 'chat_message'
 }
@@ -287,8 +327,10 @@ function AdminPage() {
   const adminPage = useAdminPage()
   const [activeTab, setActiveTab] = useState('invite')
   const [inviteForm, setInviteForm] = useState(createInitialInviteForm)
+  const [noInviteUntilInput, setNoInviteUntilInput] = useState(getDefaultNoInviteUntil)
   const [feedback, setFeedback] = useState({ tone: 'neutral', message: '' })
   const [isCreatingInvite, setIsCreatingInvite] = useState(false)
+  const [isUpdatingNoInvitePolicy, setIsUpdatingNoInvitePolicy] = useState(false)
   const [pendingInviteId, setPendingInviteId] = useState(null)
   const [pendingProfileId, setPendingProfileId] = useState(null)
   const [pendingModerationId, setPendingModerationId] = useState(null)
@@ -318,6 +360,13 @@ function AdminPage() {
     adminPage?.contents ||
     adminPage?.data?.moderationItems
   ).map(normalizeModerationItem)
+  const signupPolicy = normalizeSignupPolicy(
+    adminPage?.signupPolicy ||
+      adminPage?.policy ||
+      adminPage?.signup ||
+      adminPage?.data?.signupPolicy ||
+      null,
+  )
 
   const isLoading = Boolean(
     adminPage?.isLoading ||
@@ -342,6 +391,12 @@ function AdminPage() {
     'revokeInviteMutation',
     'deleteInvite',
   ])
+  const setNoInviteSignupUntilAction = resolveAction(adminPage, [
+    'setNoInviteSignupUntil',
+    'updateNoInviteSignupPolicy',
+    'setNoInviteSignupPolicy',
+    'setSignupPolicy',
+  ])
   const updateRoleAction = resolveAction(adminPage, [
     'updateProfileAdminStatus',
     'setProfileRole',
@@ -358,6 +413,14 @@ function AdminPage() {
     'deletePostHard',
     'removeModerationItem',
   ])
+
+  useEffect(() => {
+    if (signupPolicy?.isNoInvitePeriod && signupPolicy.noInviteRequiredUntil) {
+      setNoInviteUntilInput((prev) =>
+        toDateTimeLocalValue(signupPolicy.noInviteRequiredUntil, prev || getDefaultNoInviteUntil()),
+      )
+    }
+  }, [signupPolicy?.isNoInvitePeriod, signupPolicy?.noInviteRequiredUntil])
 
   const handleInviteInputChange = (field, value) => {
     setInviteForm((prev) => ({ ...prev, [field]: value }))
@@ -405,6 +468,55 @@ function AdminPage() {
       setFeedback({ tone: 'error', message: toErrorMessage(error) })
     } finally {
       setPendingInviteId(null)
+    }
+  }
+
+  const handleStartNoInvitePeriod = async (event) => {
+    event.preventDefault()
+    setFeedback({ tone: 'neutral', message: '' })
+
+    const localDate = new Date(noInviteUntilInput)
+    if (Number.isNaN(localDate.getTime())) {
+      setFeedback({ tone: 'error', message: '면제 종료 시각 형식이 올바르지 않습니다.' })
+      return
+    }
+
+    if (localDate.getTime() <= Date.now()) {
+      setFeedback({ tone: 'error', message: '면제 종료 시각은 현재 시각보다 미래여야 합니다.' })
+      return
+    }
+
+    try {
+      setIsUpdatingNoInvitePolicy(true)
+      if (typeof setNoInviteSignupUntilAction !== 'function') {
+        throw new Error('가입 정책 설정 기능을 찾지 못했습니다.')
+      }
+      await setNoInviteSignupUntilAction({ until: localDate.toISOString() })
+      setFeedback({ tone: 'success', message: '초대코드 면제 기간을 적용했습니다.' })
+    } catch (error) {
+      setFeedback({ tone: 'error', message: toErrorMessage(error) })
+    } finally {
+      setIsUpdatingNoInvitePolicy(false)
+    }
+  }
+
+  const handleStopNoInvitePeriod = async () => {
+    if (!window.confirm('초대코드 면제 기간을 즉시 종료할까요?')) {
+      return
+    }
+
+    setFeedback({ tone: 'neutral', message: '' })
+    try {
+      setIsUpdatingNoInvitePolicy(true)
+      if (typeof setNoInviteSignupUntilAction !== 'function') {
+        throw new Error('가입 정책 설정 기능을 찾지 못했습니다.')
+      }
+      await setNoInviteSignupUntilAction({ until: null })
+      setFeedback({ tone: 'success', message: '초대코드 면제 기간을 종료했습니다.' })
+    } catch (error) {
+      setFeedback({ tone: 'error', message: toErrorMessage(error) })
+    } finally {
+      setIsUpdatingNoInvitePolicy(false)
     }
   }
 
@@ -516,6 +628,56 @@ function AdminPage() {
 
       {activeTab === 'invite' ? (
         <section className="admin-section">
+          <div className="glass admin-card">
+            <h2 style={{ fontSize: '1.1rem', marginBottom: '0.8rem' }}>초대코드 면제 기간</h2>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+              상태:{' '}
+              {signupPolicy.isNoInvitePeriod ? (
+                <strong style={{ color: '#16a34a' }}>활성</strong>
+              ) : signupPolicy.isInviteRequired ? (
+                <strong style={{ color: '#dc2626' }}>초대코드 필요</strong>
+              ) : signupPolicy.isBootstrapAvailable ? (
+                <strong style={{ color: '#2563eb' }}>첫 관리자 부트스트랩 가능</strong>
+              ) : (
+                <strong style={{ color: 'var(--text-primary)' }}>비활성</strong>
+              )}
+            </p>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)', marginBottom: '1rem' }}>
+              종료 시각: {formatDateTime(signupPolicy.noInviteRequiredUntil, '설정되지 않음')}
+            </p>
+
+            <form onSubmit={handleStartNoInvitePeriod} className="admin-form-grid">
+              <div className="admin-form-field">
+                <label htmlFor="admin-no-invite-until">면제 종료 시각</label>
+                <input
+                  id="admin-no-invite-until"
+                  type="datetime-local"
+                  value={noInviteUntilInput}
+                  onChange={(event) => setNoInviteUntilInput(event.target.value)}
+                  className="form-control"
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={handleStopNoInvitePeriod}
+                  disabled={!supabaseStatus.configured || isUpdatingNoInvitePolicy || !signupPolicy.noInviteRequiredUntil}
+                >
+                  {isUpdatingNoInvitePolicy ? '처리 중...' : '즉시 종료'}
+                </button>
+                <button
+                  className="btn-primary"
+                  type="submit"
+                  disabled={!supabaseStatus.configured || isUpdatingNoInvitePolicy}
+                >
+                  {isUpdatingNoInvitePolicy ? '적용 중...' : '지금부터 면제 시작/갱신'}
+                </button>
+              </div>
+            </form>
+          </div>
+
           <div className="glass admin-card">
             <h2 style={{ fontSize: '1.1rem', marginBottom: '0.8rem' }}>공개 초대코드 생성</h2>
             <form onSubmit={handleCreateInvite} className="admin-form-grid">

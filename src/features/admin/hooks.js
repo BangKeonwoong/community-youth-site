@@ -3,16 +3,19 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createInviteCode as createInviteCodeApi,
   deleteModerationPost as deleteModerationPostApi,
+  getSignupPolicy as getSignupPolicyApi,
   listInviteCodes,
   listModerationPosts,
   listProfiles,
   revokeInviteCode as revokeInviteCodeApi,
+  setNoInviteSignupUntil as setNoInviteSignupUntilApi,
   updateProfileAdminStatus as updateProfileAdminStatusApi,
 } from './api'
 import { getCurrentProfile, getSupabaseStatus } from '../profile/api'
 
 const PROFILE_QUERY_KEY = ['profile']
 const INVITE_CODES_QUERY_KEY = ['admin', 'invite-codes']
+const SIGNUP_POLICY_QUERY_KEY = ['admin', 'signup-policy']
 const ADMIN_PROFILES_QUERY_KEY = ['admin', 'profiles']
 const MODERATION_POSTS_QUERY_KEY = ['admin', 'moderation-posts']
 
@@ -39,6 +42,12 @@ export function useAdminPage() {
     enabled: isEnabled,
   })
 
+  const signupPolicyQuery = useQuery({
+    queryKey: SIGNUP_POLICY_QUERY_KEY,
+    queryFn: getSignupPolicyApi,
+    enabled: isEnabled,
+  })
+
   const profilesQuery = useQuery({
     queryKey: ADMIN_PROFILES_QUERY_KEY,
     queryFn: listProfiles,
@@ -62,6 +71,13 @@ export function useAdminPage() {
     mutationFn: revokeInviteCodeApi,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: INVITE_CODES_QUERY_KEY })
+    },
+  })
+
+  const setNoInviteSignupUntilMutation = useMutation({
+    mutationFn: (payload) => setNoInviteSignupUntilApi(payload, profileQuery.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: SIGNUP_POLICY_QUERY_KEY })
     },
   })
 
@@ -93,25 +109,31 @@ export function useAdminPage() {
       profileQuery.isLoading ||
       (isEnabled &&
         ((inviteCodesQuery.isLoading && inviteCodesQuery.fetchStatus !== 'idle') ||
+          (signupPolicyQuery.isLoading && signupPolicyQuery.fetchStatus !== 'idle') ||
           (profilesQuery.isLoading && profilesQuery.fetchStatus !== 'idle') ||
           (moderationPostsQuery.isLoading && moderationPostsQuery.fetchStatus !== 'idle'))),
     error:
       profileQuery.error ||
       inviteCodesQuery.error ||
+      signupPolicyQuery.error ||
       profilesQuery.error ||
       moderationPostsQuery.error ||
       createInviteCodeMutation.error ||
       revokeInviteCodeMutation.error ||
+      setNoInviteSignupUntilMutation.error ||
       updateAdminStatusMutation.error ||
       deleteModerationPostMutation.error ||
       null,
+    signupPolicy: signupPolicyQuery.data || null,
     createInviteCode: createInviteCodeMutation.mutateAsync,
     revokeInviteCode: revokeInviteCodeMutation.mutateAsync,
+    setNoInviteSignupUntil: setNoInviteSignupUntilMutation.mutateAsync,
     updateProfileAdminStatus: updateAdminStatusMutation.mutateAsync,
     deleteModerationPost: deleteModerationPostMutation.mutateAsync,
     isSubmitting:
       createInviteCodeMutation.isPending ||
       revokeInviteCodeMutation.isPending ||
+      setNoInviteSignupUntilMutation.isPending ||
       updateAdminStatusMutation.isPending ||
       deleteModerationPostMutation.isPending,
   }

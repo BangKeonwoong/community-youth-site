@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import ErrorBanner from '../components/common/ErrorBanner'
 import { useAuth } from '../hooks/useAuth'
@@ -15,9 +15,28 @@ function normalizePhoneNumber(value) {
   return String(value ?? '').replace(/\D/g, '')
 }
 
+function formatDateTime(value, emptyText = '미정') {
+  if (!value) {
+    return emptyText
+  }
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return emptyText
+  }
+
+  return new Intl.DateTimeFormat('ko-KR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
+}
+
 function SetPassword() {
   const navigate = useNavigate()
-  const { signUpWithInvite } = useAuth()
+  const { getSignUpPolicy, signUpWithInvite } = useAuth()
 
   const [inviteCode, setInviteCode] = useState('')
   const [loginId, setLoginId] = useState('')
@@ -29,13 +48,50 @@ function SetPassword() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
+  const [policyError, setPolicyError] = useState('')
+  const [isPolicyLoading, setIsPolicyLoading] = useState(true)
+  const [signupPolicy, setSignupPolicy] = useState({
+    noInviteRequiredUntil: null,
+    isNoInvitePeriod: false,
+    isInviteRequired: false,
+    isBootstrapAvailable: false,
+  })
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const isNoInvitePeriod = Boolean(signupPolicy?.isNoInvitePeriod)
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadSignUpPolicy = async () => {
+      setIsPolicyLoading(true)
+      setPolicyError('')
+      const { data, error: policyLoadError } = await getSignUpPolicy()
+
+      if (!isMounted) {
+        return
+      }
+
+      if (policyLoadError) {
+        setPolicyError(policyLoadError.message || '가입 정책을 불러오지 못했습니다. 다시 시도해 주세요.')
+      } else if (data) {
+        setSignupPolicy(data)
+      }
+
+      setIsPolicyLoading(false)
+    }
+
+    loadSignUpPolicy()
+
+    return () => {
+      isMounted = false
+    }
+  }, [getSignUpPolicy])
 
   const handleSubmit = async (event) => {
     event.preventDefault()
     setError('')
 
-    const normalizedInviteCode = inviteCode.trim()
+    const normalizedInviteCode = isNoInvitePeriod ? '' : inviteCode.trim()
     const normalizedLoginId = loginId.trim().toLowerCase()
     const normalizedDisplayName = displayName.trim()
     const normalizedBirthDate = birthDate.trim()
@@ -75,6 +131,11 @@ function SetPassword() {
 
     if (!['pastor', 'teacher', 'student'].includes(normalizedMemberType)) {
       setError('구분을 선택해 주세요.')
+      return
+    }
+
+    if (!isNoInvitePeriod && signupPolicy?.isInviteRequired && !normalizedInviteCode) {
+      setError('현재는 초대코드가 필요한 기간입니다. 초대코드를 입력해 주세요.')
       return
     }
 
@@ -136,23 +197,47 @@ function SetPassword() {
     <div className="container" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div className="glass animate-fade-in" style={{ padding: '2rem', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: '420px' }}>
         <h1 style={{ fontSize: '1.5rem', marginBottom: '0.5rem', textAlign: 'center' }}>회원가입</h1>
-        <p style={{ color: 'var(--text-secondary)', textAlign: 'center', marginBottom: '1.5rem' }}>
-          초대코드와 기본 정보를 입력해 계정을 만드세요
-        </p>
+        {isPolicyLoading ? (
+          <p style={{ color: 'var(--text-secondary)', textAlign: 'center', marginBottom: '0.75rem' }}>
+            가입 정책을 확인하는 중입니다...
+          </p>
+        ) : isNoInvitePeriod ? (
+          <p style={{ color: '#166534', textAlign: 'center', marginBottom: '0.75rem' }}>
+            현재 {formatDateTime(signupPolicy.noInviteRequiredUntil, '종료 시각 미정')}까지 초대코드 없이 가입할 수 있습니다.
+          </p>
+        ) : signupPolicy?.isBootstrapAvailable ? (
+          <p style={{ color: 'var(--text-secondary)', textAlign: 'center', marginBottom: '0.75rem' }}>
+            첫 관리자 계정은 초대코드 없이 가입할 수 있습니다.
+          </p>
+        ) : (
+          <p style={{ color: 'var(--text-secondary)', textAlign: 'center', marginBottom: '0.75rem' }}>
+            초대코드와 기본 정보를 입력해 계정을 만드세요
+          </p>
+        )}
+        {policyError ? (
+          <p style={{ color: '#b45309', textAlign: 'center', marginBottom: '0.75rem', fontSize: '0.85rem' }}>
+            {policyError}
+          </p>
+        ) : (
+          <p style={{ color: 'var(--text-tertiary)', textAlign: 'center', marginBottom: '1.5rem', fontSize: '0.85rem' }}>
+            면제 기간 중에는 초대코드 입력이 비활성화됩니다.
+          </p>
+        )}
 
         <ErrorBanner message={error} />
 
         <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div>
             <label htmlFor="invite-code" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
-              초대코드
+              초대코드{isNoInvitePeriod ? ' (면제 기간 중 비활성화)' : ''}
             </label>
             <input
               id="invite-code"
               type="text"
               value={inviteCode}
               onChange={(event) => setInviteCode(event.target.value)}
-              placeholder="INVITE-2026-XXXX (첫 관리자만 비워도 됨)"
+              placeholder={isNoInvitePeriod ? '현재는 초대코드 없이 가입됩니다.' : 'INVITE-2026-XXXX'}
+              disabled={isNoInvitePeriod}
               className="form-control"
             />
           </div>

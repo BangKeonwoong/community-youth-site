@@ -111,6 +111,8 @@ function NotificationProvider({ children }) {
   const supabaseStatus = useMemo(() => getSupabaseStatus(), [])
   const queryClient = useQueryClient()
   const [toasts, setToasts] = useState([])
+  const [serviceWorkerRegistration, setServiceWorkerRegistration] = useState(null)
+  const [serviceWorkerReady, setServiceWorkerReady] = useState(false)
 
   const toastTimersRef = useRef(new Map())
   const serviceWorkerRegistrationRef = useRef(null)
@@ -252,8 +254,12 @@ function NotificationProvider({ children }) {
         }
 
         serviceWorkerRegistrationRef.current = registration
+        setServiceWorkerRegistration(registration)
+        setServiceWorkerReady(true)
       } catch {
         serviceWorkerRegistrationRef.current = null
+        setServiceWorkerRegistration(null)
+        setServiceWorkerReady(false)
       }
     }
 
@@ -265,11 +271,11 @@ function NotificationProvider({ children }) {
   }, [supabaseStatus.configured])
 
   useEffect(() => {
-    if (!supabaseStatus.configured || !isRealProfile || !profileId || !serviceWorkerRegistrationRef.current) {
+    const registration = serviceWorkerRegistration || serviceWorkerRegistrationRef.current
+
+    if (!supabaseStatus.configured || !isRealProfile || !profileId || !registration) {
       return
     }
-
-    const registration = serviceWorkerRegistrationRef.current
 
     const syncPushSubscription = async () => {
       const supportsPush = 'PushManager' in window
@@ -309,7 +315,14 @@ function NotificationProvider({ children }) {
     }
 
     syncPushSubscription().catch(() => {})
-  }, [isRealProfile, profileId, settings.browserEnabled, supabaseStatus.configured])
+  }, [
+    isRealProfile,
+    profileId,
+    serviceWorkerReady,
+    serviceWorkerRegistration,
+    settings.browserEnabled,
+    supabaseStatus.configured,
+  ])
 
   useEffect(() => {
     if (!supabaseStatus.configured || !isRealProfile || !profileId || !supabase) {
